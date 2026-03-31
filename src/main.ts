@@ -16,7 +16,10 @@ async function bootstrap() {
 	const config = new DocumentBuilder()
 		.setTitle('Crescent API')
 		.setDescription('API documentation for Crescent project')
-		.setVersion('1.0')
+		.setVersion('1.0'
+
+			
+		)
 		.build();
 	const document = SwaggerModule.createDocument(app, config);
 	SwaggerModule.setup('api', app, document);
