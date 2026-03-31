@@ -16,12 +16,16 @@ async function bootstrap() {
 	const config = new DocumentBuilder()
 		.setTitle('Crescent API')
 		.setDescription('API documentation for Crescent project')
-		.setVersion('1.0')
+		.setVersion('1.0'
+
+			
+		)
 		.build();
 	const document = SwaggerModule.createDocument(app, config);
 	SwaggerModule.setup('api', app, document);
 
-	await app.listen(3000, '0.0.0.0');
+	const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+	await app.listen(port);
 }
 
 bootstrap();
