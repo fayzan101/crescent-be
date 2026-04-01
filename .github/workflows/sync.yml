@@ -13,14 +13,17 @@ jobs:
       - name: Checkout source repo
         uses: actions/checkout@v3
 
-      - name: Push to second repo
+      - name: Sync files
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
 
           git clone https://x-access-token:${{ secrets.SYNC_TOKEN }}@github.com/fayzan101/crescent-be.git target
 
-          rsync -av --delete --exclude='.git' ./ target/
+          rsync -av --delete \
+          --exclude='.git' \
+          --exclude='.github' \
+          ./ target/ || true
 
           cd target
           git add .
