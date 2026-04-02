@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
-    "build": "nest build",
+    "build": "prisma generate && nest build",
     "test": "jest",
     "prisma:migrate": "prisma migrate dev --name init_clients_table",
     "prisma:generate": "prisma generate"
