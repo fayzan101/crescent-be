@@ -14,12 +14,10 @@ import { RolesModule } from './modules/roles/roles.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { AppUsersModule } from './modules/app-users/app-users.module';
 import { UserRolesModule } from './modules/user-roles/user-roles.module';
-import { PasswordResetTokensModule } from './modules/password-reset-tokens/password-reset-tokens.module';
-import { UserPasswordHistoryModule } from './modules/user-password-history/user-password-history.module';
-import { UserSessionsModule } from './modules/user-sessions/user-sessions.module';
 import { ClientCategoriesModule } from './modules/client-categories/client-categories.module';
 import { PackagesModule } from './modules/packages/packages.module';
 import { ZoneEmployeesModule } from './modules/zone-employees/zone-employees.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -44,12 +42,10 @@ import { ZoneEmployeesModule } from './modules/zone-employees/zone-employees.mod
     EmployeesModule,
     AppUsersModule,
     UserRolesModule,
-    PasswordResetTokensModule,
-    UserPasswordHistoryModule,
-    UserSessionsModule,
     ClientCategoriesModule,
     PackagesModule,
     ZoneEmployeesModule,
+    AuthModule,
   ],
   providers: [
     {
