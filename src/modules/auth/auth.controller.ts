@@ -34,7 +34,6 @@ import { JWT_AUTH_BEARER } from '../../swagger/openapi-document.builder';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UpdateAppUserDto } from './dto/update.dto';
 
-@ApiTags('Auth', 'App users')
 @Controller('api/v1')
 export class AuthController {
   constructor(
@@ -55,6 +54,7 @@ export class AuthController {
   }
 
   @Post('auth/login')
+  @ApiTags('Auth')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email/password and receive JWT access token' })
   @ApiBody({ type: LoginDto })
@@ -66,6 +66,7 @@ export class AuthController {
   }
 
   @Post('auth/register')
+  @ApiTags('Auth')
   @ApiOperation({ summary: 'Register user and return access/refresh tokens' })
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponse({ description: 'Access token, refresh token, and user payload returned' })
@@ -75,6 +76,7 @@ export class AuthController {
   }
 
   @Post('auth/refresh')
+  @ApiTags('Auth')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token (rotates refresh token)' })
   @ApiBody({ type: RefreshTokenDto })
@@ -86,6 +88,7 @@ export class AuthController {
   }
 
   @Post('auth/logout')
+  @ApiTags('Auth')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke refresh token (logout)' })
   @ApiBody({ type: LogoutDto })
@@ -96,6 +99,7 @@ export class AuthController {
   }
 
   @Get('app-users')
+  @ApiTags('Users')
   @ApiBearerAuth(JWT_AUTH_BEARER)
   @ApiOperation({ summary: 'List application users (password hash omitted)' })
   @UseGuards(JwtAuthGuard)
@@ -104,6 +108,7 @@ export class AuthController {
   }
 
   @Get('app-users/:id')
+  @ApiTags('Users')
   @ApiBearerAuth(JWT_AUTH_BEARER)
   @ApiOperation({ summary: 'Get application user by id' })
   @ApiParam({ name: 'id', type: Number })
@@ -114,6 +119,7 @@ export class AuthController {
   }
 
   @Patch('app-users/:id')
+  @ApiTags('Users')
   @ApiBearerAuth(JWT_AUTH_BEARER)
   @ApiOperation({ summary: 'Update application user' })
   @ApiParam({ name: 'id', type: Number })
@@ -124,6 +130,7 @@ export class AuthController {
   }
 
   @Delete('app-users/:id')
+  @ApiTags('Users')
   @ApiBearerAuth(JWT_AUTH_BEARER)
   @ApiOperation({ summary: 'Delete application user' })
   @ApiParam({ name: 'id', type: Number })
