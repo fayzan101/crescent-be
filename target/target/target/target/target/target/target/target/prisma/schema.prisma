@@ -121,7 +121,6 @@ model Employee {
   createdAt         DateTime         @default(now()) @map("CreatedAt")
   updatedAt         DateTime         @updatedAt @map("UpdatedAt")
 
-  appUser      AppUser?
   zoneEmployees ZoneEmployee[]
 
   @@map("Employee")
@@ -129,32 +128,40 @@ model Employee {
 
 model AppUser {
   userId               Int       @id @default(autoincrement()) @map("UserID")
-  employeeId           Int?      @unique @map("EmployeeID")
-  userName             String    @unique @map("UserName")
+  email                String    @unique @map("EmailID")
   passwordHash         String    @map("PasswordHash")
-  isTempPassword       Boolean   @default(true) @map("IsTempPassword")
-  mustChangePassword   Boolean   @default(true) @map("MustChangePassword")
-  isEmailVerified      Boolean   @default(false) @map("IsEmailVerified")
-  isMobileVerified     Boolean   @default(false) @map("IsMobileVerified")
-  isActive             Boolean   @default(true) @map("IsActive")
-  isLocked             Boolean   @default(false) @map("IsLocked")
-  failedLoginAttempts  Int       @default(0) @map("FailedLoginAttempts")
-  lastLoginAt          DateTime? @map("LastLoginAt")
-  lastPasswordChangedAt DateTime? @map("LastPasswordChangedAt")
+  dob                  DateTime  @map("DOB")
+  cnic                 String    @unique @map("CNIC")
+  contactNo            String    @map("ContactNo")
+  address              String    @map("Address")
   createdAt            DateTime  @default(now()) @map("CreatedAt")
   updatedAt            DateTime  @updatedAt @map("UpdatedAt")
-  createdByUserId      Int?      @map("CreatedByUserID")
 
-  employee            Employee?            @relation(fields: [employeeId], references: [employeeId])
-  createdBy           AppUser?             @relation("AppUserCreatedBy", fields: [createdByUserId], references: [userId])
-  createdUsers        AppUser[]            @relation("AppUserCreatedBy")
   userRoles           UserRole[]
   assignedUserRoles   UserRole[]           @relation("UserRoleAssignedBy")
-  passwordResetTokens PasswordResetToken[]
-  passwordHistory     UserPasswordHistory[]
-  sessions            UserSession[]
+  refreshTokens        RefreshToken[]
 
   @@map("AppUser")
+}
+
+model RefreshToken {
+  refreshTokenId   Int       @id @default(autoincrement()) @map("RefreshTokenID")
+  userId           Int       @map("UserID")
+  tokenHash        String    @unique @map("TokenHash")
+  issuedAt         DateTime  @default(now()) @map("IssuedAt")
+  expiresAt        DateTime  @map("ExpiresAt")
+  revokedAt        DateTime? @map("RevokedAt")
+  revokedReason    String?   @map("RevokedReason")
+  replacedByTokenId Int?     @map("ReplacedByTokenID")
+  userAgent        String?   @map("UserAgent")
+  ipv4             String?   @map("IPV4")
+  ipv6             String?   @map("IPV6")
+
+  user           AppUser       @relation(fields: [userId], references: [userId])
+  replacedBy     RefreshToken? @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [refreshTokenId])
+  replacedTokens RefreshToken[] @relation("RefreshTokenReplacement")
+
+  @@map("RefreshToken")
 }
 
 model UserRole {
@@ -172,60 +179,6 @@ model UserRole {
 
   @@unique([userId, roleId])
   @@map("UserRole")
-}
-
-model PasswordResetToken {
-  resetTokenId       Int       @id @default(autoincrement()) @map("ResetTokenID")
-  userId             Int       @map("UserID")
-  tokenHash          String    @map("TokenHash")
-  requestedAt        DateTime  @default(now()) @map("RequestedAt")
-  expiresAt          DateTime  @map("ExpiresAt")
-  usedAt             DateTime? @map("UsedAt")
-  requestedIp        String?   @map("RequestedIP")
-  requestedUserAgent String?   @map("RequestedUserAgent")
-  isActive           Boolean   @default(true) @map("IsActive")
-  createdAt          DateTime  @default(now()) @map("CreatedAt")
-
-  user AppUser @relation(fields: [userId], references: [userId])
-
-  @@map("PasswordResetToken")
-}
-
-model UserPasswordHistory {
-  passwordHistoryId Int      @id @default(autoincrement()) @map("PasswordHistoryID")
-  userId            Int      @map("UserID")
-  passwordHash      String   @map("PasswordHash")
-  createdAt         DateTime @default(now()) @map("CreatedAt")
-
-  user AppUser @relation(fields: [userId], references: [userId])
-
-  @@map("UserPasswordHistory")
-}
-
-model UserSession {
-  sessionId           Int       @id @default(autoincrement()) @map("SessionID")
-  userId              Int       @map("UserID")
-  refreshTokenHash    String    @map("RefreshTokenHash")
-  jwtId               String?   @unique @map("JwtID")
-  deviceInfo          String?   @map("DeviceInfo")
-  ipv4                String?   @map("IPV4")
-  ipv6                String?   @map("IPV6")
-  userAgent           String?   @map("UserAgent")
-  issuedAt            DateTime  @default(now()) @map("IssuedAt")
-  expiresAt           DateTime  @map("ExpiresAt")
-  lastUsedAt          DateTime? @map("LastUsedAt")
-  revokedAt           DateTime? @map("RevokedAt")
-  revokedReason       String?   @map("RevokedReason")
-  replacedBySessionId Int?      @map("ReplacedBySessionID")
-  isActive            Boolean   @default(true) @map("IsActive")
-  createdAt           DateTime  @default(now()) @map("CreatedAt")
-  updatedAt           DateTime  @updatedAt @map("UpdatedAt")
-
-  user             AppUser       @relation(fields: [userId], references: [userId])
-  replacedBy       UserSession?  @relation("SessionReplacement", fields: [replacedBySessionId], references: [sessionId])
-  replacedSessions UserSession[] @relation("SessionReplacement")
-
-  @@map("UserSession")
 }
 
 model ClientCategory {

@@ -1,1 +1,201 @@
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { AppUser, Prisma } from '@prisma/client';
+import * as argon2 from 'argon2';
+import { PrismaService } from '../../database/prisma.service';
+import {
+  generateRefreshToken,
+  getRefreshTokenExpiresAt,
+  hashRefreshToken,
+} from './refresh-token.util';
+import { RegisterDto } from './dto/register.dto';
+import { UpdateAppUserDto } from './dto/update.dto';
+
+export interface JwtPayload {
+  sub: number;
+  email: string;
+}
+
+type AppUserPublic = Omit<AppUser, 'passwordHash'>;
+
+type RefreshTokenMeta = {
+  userAgent?: string | null;
+  ipv4?: string | null;
+  ipv6?: string | null;
+};
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  private toPublic(user: AppUser): AppUserPublic {
+    const { passwordHash: _p, ...rest } = user;
+    return rest;
+  }
+
+  async validateUser(email: string, password: string) {
+    const user = await this.prisma.appUser.findUnique({ where: { email } });
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const ok = await argon2.verify(user.passwordHash, password);
+    if (!ok) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    return this.toPublic(user);
+  }
+
+  async register(dto: RegisterDto) {
+    const passwordHash = await argon2.hash(dto.password);
+    const user = await this.prisma.appUser.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        dob: new Date(dto.dob),
+        cnic: dto.cnic,
+        contactNo: dto.contactNo,
+        address: dto.address,
+      },
+    });
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.userId,
+      email: user.email,
+    });
+    const { refreshToken } = await this.createRefreshToken(user.userId);
+    return { accessToken, refreshToken, user: this.toPublic(user) };
+  }
+
+  async listUsers() {
+    const rows = await this.prisma.appUser.findMany({ orderBy: { userId: 'asc' } });
+    return rows.map((u) => this.toPublic(u));
+  }
+
+  async getUser(userId: number) {
+    const user = await this.findUserRaw(userId);
+    return this.toPublic(user);
+  }
+
+  private async findUserRaw(userId: number) {
+    const row = await this.prisma.appUser.findUnique({ where: { userId } });
+    if (!row) throw new NotFoundException(`User ${userId} not found`);
+    return row;
+  }
+
+  async updateUser(userId: number, dto: UpdateAppUserDto) {
+    await this.findUserRaw(userId);
+    const data: Prisma.AppUserUncheckedUpdateInput = {};
+    if (dto.email !== undefined) data.email = dto.email;
+    if (dto.dob !== undefined) data.dob = new Date(dto.dob);
+    if (dto.cnic !== undefined) data.cnic = dto.cnic;
+    if (dto.contactNo !== undefined) data.contactNo = dto.contactNo;
+    if (dto.address !== undefined) data.address = dto.address;
+    if (dto.password) {
+      data.passwordHash = await argon2.hash(dto.password);
+    }
+    const user = await this.prisma.appUser.update({ where: { userId }, data });
+    return this.toPublic(user);
+  }
+
+  async removeUser(userId: number) {
+    await this.findUserRaw(userId);
+    const user = await this.prisma.appUser.delete({ where: { userId } });
+    return this.toPublic(user);
+  }
+
+  private async createRefreshToken(userId: number, meta?: RefreshTokenMeta) {
+    const issuedAt = new Date();
+    const refreshToken = generateRefreshToken();
+    const tokenHash = hashRefreshToken(refreshToken);
+    const record = await this.prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash,
+        issuedAt,
+        expiresAt: getRefreshTokenExpiresAt(issuedAt),
+        userAgent: meta?.userAgent ?? null,
+        ipv4: meta?.ipv4 ?? null,
+        ipv6: meta?.ipv6 ?? null,
+      },
+    });
+    return { refreshToken, record };
+  }
+
+  async login(email: string, password: string, meta?: RefreshTokenMeta) {
+    const user = await this.validateUser(email, password);
+    const payload: JwtPayload = { sub: user.userId, email: user.email };
+    const accessToken = await this.jwtService.signAsync(payload);
+    const { refreshToken } = await this.createRefreshToken(user.userId, meta);
+    return {
+      accessToken,
+      refreshToken,
+      user,
+    };
+  }
+
+  async refresh(refreshToken: string, meta?: RefreshTokenMeta) {
+    const tokenHash = hashRefreshToken(refreshToken);
+    const existing = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+    if (!existing || existing.revokedAt || existing.expiresAt <= new Date()) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.prisma.appUser.findUnique({ where: { userId: existing.userId } });
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const now = new Date();
+    const newRefreshToken = generateRefreshToken();
+    await this.prisma.$transaction(async (tx) => {
+      const created = await tx.refreshToken.create({
+        data: {
+          userId: existing.userId,
+          tokenHash: hashRefreshToken(newRefreshToken),
+          issuedAt: now,
+          expiresAt: getRefreshTokenExpiresAt(now),
+          userAgent: meta?.userAgent ?? null,
+          ipv4: meta?.ipv4 ?? null,
+          ipv6: meta?.ipv6 ?? null,
+        },
+      });
+      await tx.refreshToken.update({
+        where: { refreshTokenId: existing.refreshTokenId },
+        data: {
+          revokedAt: now,
+          revokedReason: 'rotated',
+          replacedByTokenId: created.refreshTokenId,
+        },
+      });
+    });
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.userId,
+      email: user.email,
+    });
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  async logout(refreshToken: string) {
+    const tokenHash = hashRefreshToken(refreshToken);
+    const existing = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+    if (!existing || existing.revokedAt) {
+      return { revoked: false };
+    }
+    await this.prisma.refreshToken.update({
+      where: { refreshTokenId: existing.refreshTokenId },
+      data: { revokedAt: new Date(), revokedReason: 'logout' },
+    });
+    return { revoked: true };
+  }
+
+  async verifyToken(token: string) {
+    return this.jwtService.verifyAsync<JwtPayload>(token);
+  }
+}
 // auth service
