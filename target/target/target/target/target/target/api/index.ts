@@ -44,3 +44,5 @@ export const handler: Handler = async (event: any, context: Context, callback: C
   const server = await bootstrapServer();
   return proxy(server, event, context, 'PROMISE').promise;
 };
+
+export default handler;
