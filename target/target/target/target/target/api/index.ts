@@ -1,17 +1,16 @@
-import { createServer, proxy } from 'aws-serverless-express';
-import { Callback, Context, Handler } from 'aws-lambda';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
+import { buildOpenApiDocument } from '../src/swagger/openapi-document.builder';
 import { join } from 'path';
 import express from 'express';
 
-let cachedServer: any;
+let cachedApp: any;
 
 async function bootstrapServer() {
-  if (!cachedServer) {
+  if (!cachedApp) {
     const expressApp = express();
     const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
     app.useGlobalPipes(
@@ -21,12 +20,7 @@ async function bootstrapServer() {
         transform: true,
       }),
     );
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle('Crescent API')
-      .setDescription('Serverless Swagger entrypoint. OpenAPI JSON available at `/api-json`.')
-      .setVersion('1.0')
-      .build();
-    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    const swaggerDocument = SwaggerModule.createDocument(app, buildOpenApiDocument());
 
     expressApp.get(['/', '/swagger'], (_req, res) => {
       res.sendFile(join(process.cwd(), 'api', 'swagger-index.html'));
@@ -35,14 +29,12 @@ async function bootstrapServer() {
       res.json(swaggerDocument);
     });
     await app.init();
-    cachedServer = createServer(expressApp);
+    cachedApp = expressApp;
   }
-  return cachedServer;
+  return cachedApp;
 }
 
-export const handler: Handler = async (event: any, context: Context, callback: Callback) => {
-  const server = await bootstrapServer();
-  return proxy(server, event, context, 'PROMISE').promise;
-};
-
-export default handler;
+export default async function handler(req: any, res: any) {
+  const app = await bootstrapServer();
+  return app(req, res);
+}
