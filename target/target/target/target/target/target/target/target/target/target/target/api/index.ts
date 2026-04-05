@@ -4,6 +4,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { join } from 'path';
 import express from 'express';
 
 let cachedServer: any;
@@ -19,6 +21,19 @@ async function bootstrapServer() {
         transform: true,
       }),
     );
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Crescent API')
+      .setDescription('Serverless Swagger entrypoint. OpenAPI JSON available at `/api-json`.')
+      .setVersion('1.0')
+      .build();
+    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+
+    expressApp.get(['/', '/swagger'], (_req, res) => {
+      res.sendFile(join(process.cwd(), 'api', 'swagger-index.html'));
+    });
+    expressApp.get('/api-json', (_req, res) => {
+      res.json(swaggerDocument);
+    });
     await app.init();
     cachedServer = createServer(expressApp);
   }
