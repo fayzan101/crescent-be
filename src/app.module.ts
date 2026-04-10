@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { DatabaseModule } from './database/database.module';
-import { ClientsModule } from './modules/clients/clients.module';
+import { RbacModule } from './modules/rbac/rbac.module';
 import { OfficesModule } from './modules/offices/offices.module';
 import { ProductsModule } from './modules/products/products.module';
 import { BanksModule } from './modules/banks/banks.module';
@@ -18,10 +18,18 @@ import { PackagesModule } from './modules/packages/packages.module';
 import { ZoneEmployeesModule } from './modules/zone-employees/zone-employees.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AppUsersModule } from './modules/app-users/app-user.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { DevicesModule } from './modules/devices/devices.module';
+import { SimsModule } from './modules/sims/sims.module';
+import { DeviceCombosModule } from './modules/device-combos/device-combos.module';
+import { AccessoriesModule } from './modules/accessories/accessories.module';
+import { PermissionDefinitionsModule } from './modules/permission-definitions/permission-definitions.module';
+import { RolePermissionsModule } from './modules/role-permissions/role-permissions.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    RbacModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -31,7 +39,6 @@ import { AppUsersModule } from './modules/app-users/app-user.module';
       ],
     }),
     DatabaseModule,
-    ClientsModule,
     OfficesModule,
     ProductsModule,
     BanksModule,
@@ -46,6 +53,13 @@ import { AppUsersModule } from './modules/app-users/app-user.module';
     ZoneEmployeesModule,
     AuthModule,
     AppUsersModule,
+    SalesModule,
+    DevicesModule,
+    SimsModule,
+    DeviceCombosModule,
+    AccessoriesModule,
+    PermissionDefinitionsModule,
+    RolePermissionsModule,
   ],
   providers: [
     {

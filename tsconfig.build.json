@@ -4,5 +4,5 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "exclude": ["api", "node_modules", "dist", "target", "test", "**/*.spec.ts"]
+  "exclude": ["api", "prisma", "node_modules", "dist", "target", "test", "**/*.spec.ts"]
 }

@@ -2,7 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { buildOpenApiDocument } from './swagger/openapi-document.builder';
+import { buildOpenApiDocument, SWAGGER_TAG_ORDER } from './swagger/openapi-document.builder';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -34,7 +34,14 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
-      tagsSorter: 'alpha',
+      tagsSorter: (a: string, b: string) => {
+        const ia = SWAGGER_TAG_ORDER.indexOf(a);
+        const ib = SWAGGER_TAG_ORDER.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      },
       operationsSorter: 'alpha',
     },
   });

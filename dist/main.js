@@ -31,7 +31,17 @@ async function bootstrap() {
     swagger_1.SwaggerModule.setup('api', app, document, {
         swaggerOptions: {
             persistAuthorization: true,
-            tagsSorter: 'alpha',
+            tagsSorter: (a, b) => {
+                const ia = openapi_document_builder_1.SWAGGER_TAG_ORDER.indexOf(a);
+                const ib = openapi_document_builder_1.SWAGGER_TAG_ORDER.indexOf(b);
+                if (ia === -1 && ib === -1)
+                    return a.localeCompare(b);
+                if (ia === -1)
+                    return 1;
+                if (ib === -1)
+                    return -1;
+                return ia - ib;
+            },
             operationsSorter: 'alpha',
         },
     });
