@@ -20,12 +20,31 @@
       (function () {
         const query = new URLSearchParams(window.location.search);
         const url = query.get('url') || '/api-json';
+        // Keep in sync with src/swagger/openapi-document.builder.ts → SWAGGER_TAG_ORDER
+        const TAG_ORDER = [
+          'Auth', 'Users', 'Sales', 'Permissions', 'Role permissions', 'Roles', 'User roles',
+          'Employees', 'Devices', 'SIMs', 'Device combos', 'Accessories', 'Offices', 'Zones',
+          'Zone employees', 'Products', 'Packages', 'Client categories', 'Banks', 'Bank accounts',
+          'Cities', 'Vendors',
+        ];
         window.ui = SwaggerUIBundle({
           url: url,
           dom_id: '#swagger-ui',
           deepLinking: true,
           presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
           layout: 'StandaloneLayout',
+          persistAuthorization: true,
+          tagsSorter: (a, b) => {
+            const nameA = typeof a === 'string' ? a : (a && a.name) || '';
+            const nameB = typeof b === 'string' ? b : (b && b.name) || '';
+            const ia = TAG_ORDER.indexOf(nameA);
+            const ib = TAG_ORDER.indexOf(nameB);
+            if (ia === -1 && ib === -1) return nameA.localeCompare(nameB);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+          },
+          operationsSorter: 'alpha',
         });
       })();
     </script>

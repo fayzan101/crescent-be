@@ -8,35 +8,35 @@ export declare class ProductsController {
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
-        productName: string;
         productId: number;
+        productName: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<{
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
-        productName: string;
         productId: number;
+        productName: string;
     }[]>;
     findOne(id: number): Promise<{
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
-        productName: string;
         productId: number;
+        productName: string;
     }>;
     update(id: number, dto: UpdateProductDto): Promise<{
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
-        productName: string;
         productId: number;
+        productName: string;
     }>;
     remove(id: number): Promise<{
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
-        productName: string;
         productId: number;
+        productName: string;
     }>;
 }

@@ -1,24 +1,38 @@
 import { Prisma } from '@prisma/client';
 import { DesignationType } from '@prisma/client';
 import type { PrismaService } from '../../src/database/prisma.service';
+import { PORTAL_PERMISSION_CODES } from '../../src/common/rbac/portal-permissions';
 
 type Delegate = {
   findMany: jest.Mock;
   findFirst: jest.Mock;
   findUnique: jest.Mock;
+  findUniqueOrThrow: jest.Mock;
   create: jest.Mock;
   update: jest.Mock;
+  updateMany: jest.Mock;
   delete: jest.Mock;
+  upsert: jest.Mock;
 };
 
 function del(): Delegate {
+  const findUnique = jest.fn();
   return {
     findMany: jest.fn(),
     findFirst: jest.fn(),
-    findUnique: jest.fn(),
+    findUnique,
+    findUniqueOrThrow: jest.fn(async (args: unknown) => {
+      const row = await findUnique(args);
+      if (row == null) {
+        throw new Error('Record not found');
+      }
+      return row;
+    }),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     delete: jest.fn(),
+    upsert: jest.fn(),
   };
 }
 
@@ -29,6 +43,7 @@ export function createPrismaServiceMock(): PrismaService {
   const mock = {
     $connect: jest.fn().mockResolvedValue(undefined),
     $disconnect: jest.fn().mockResolvedValue(undefined),
+    $transaction: jest.fn(),
     office: del(),
     product: del(),
     bank: del(),
@@ -44,7 +59,20 @@ export function createPrismaServiceMock(): PrismaService {
     package: del(),
     zone: del(),
     zoneEmployee: del(),
-    client: del(),
+    permission: del(),
+    rolePermission: del(),
+    device: del(),
+    sim: del(),
+    deviceCombo: del(),
+    accessory: del(),
+    sale: del(),
+    saleClientDetails: del(),
+    saleProductDetails: del(),
+    saleAccountsReview: del(),
+    saleOperationsAssignment: del(),
+    saleInstallation: del(),
+    saleStageStatus: del(),
+    saleAuditLog: del(),
   };
   return mock as unknown as PrismaService;
 }
@@ -247,6 +275,7 @@ export function seedHappyPathMocks(prisma: ReturnType<typeof createPrismaService
 
   const employee = (id: number) => ({
     employeeId: id,
+    userId: null as number | null,
     emailId: null as string | null,
     primaryMobileNo: null as string | null,
     cnic: '35202-0000000-0',
@@ -325,7 +354,46 @@ export function seedHappyPathMocks(prisma: ReturnType<typeof createPrismaService
     createdAt: now(),
     updatedAt: now(),
   });
-  m.userRole.findMany.mockResolvedValue([]);
+  m.userRole.findMany.mockImplementation(async (args: { include?: unknown }) => {
+    const inc = args?.include as { role?: { include?: { rolePermissions?: unknown } } } | undefined;
+    if (inc?.role?.include?.rolePermissions != null) {
+      return [
+        {
+          userRoleId: 1,
+          userId: 1,
+          roleId: 1,
+          assignedAt: now(),
+          assignedByUserId: null as number | null,
+          createdAt: now(),
+          updatedAt: now(),
+          role: {
+            roleId: 1,
+            roleName: 'E2E',
+            description: null as string | null,
+            isActive: true,
+            createdAt: now(),
+            updatedAt: now(),
+            rolePermissions: PORTAL_PERMISSION_CODES.map((permissionCode, i) => ({
+              rolePermissionId: i + 1,
+              roleId: 1,
+              permissionId: i + 1,
+              createdAt: now(),
+              updatedAt: now(),
+              permission: {
+                permissionId: i + 1,
+                permissionCode,
+                description: null as string | null,
+                isActive: true,
+                createdAt: now(),
+                updatedAt: now(),
+              },
+            })),
+          },
+        },
+      ];
+    }
+    return [];
+  });
   m.userRole.findUnique.mockImplementation(async (args: { where: { userRoleId: number } }) =>
     userRole(args.where.userRoleId),
   );
@@ -418,40 +486,236 @@ export function seedHappyPathMocks(prisma: ReturnType<typeof createPrismaService
     ze(args.where.zoneEmployeeId),
   );
 
-  m.client.findMany.mockResolvedValue([]);
-  m.client.findUnique.mockImplementation(async (args: { where: { id: number } }) => ({
-    id: args.where.id,
-    name: 'C',
-    email: 'e@e.com',
-    cnic: 'x',
-    irNo: 'ir',
-    phone: 'p',
-  }));
-  m.client.create.mockImplementation(async (args: { data: object }) => ({
-    id: 1,
-    name: 'C',
-    email: 'e@e.com',
-    cnic: 'x',
-    irNo: 'ir',
-    phone: 'p',
+  m.$transaction.mockImplementation(async (fn: (client: typeof m) => Promise<unknown>) => fn(m));
+
+  const saleStages = (saleId: number, userId: number) => [
+    {
+      saleStageStatusId: 1,
+      saleId,
+      stageCode: 'SALES' as const,
+      status: 'IN_PROGRESS' as const,
+      updatedByUserId: userId,
+      updatedAt: now(),
+    },
+    {
+      saleStageStatusId: 2,
+      saleId,
+      stageCode: 'ACCOUNTS' as const,
+      status: 'PENDING' as const,
+      updatedByUserId: null as number | null,
+      updatedAt: now(),
+    },
+    {
+      saleStageStatusId: 3,
+      saleId,
+      stageCode: 'OPERATIONS' as const,
+      status: 'PENDING' as const,
+      updatedByUserId: null as number | null,
+      updatedAt: now(),
+    },
+    {
+      saleStageStatusId: 4,
+      saleId,
+      stageCode: 'TECHNICIAN' as const,
+      status: 'PENDING' as const,
+      updatedByUserId: null as number | null,
+      updatedAt: now(),
+    },
+  ];
+
+  const saleFull = (id: number) => ({
+    saleId: id,
+    saleCode: `SAL-MOCK-${id}`,
+    createdByUserId: 1,
+    createdAt: now(),
+    updatedAt: now(),
+    isActive: true,
+    clientDetails: null,
+    productDetails: null,
+    accountsReview: null,
+    operationsAssignment: null,
+    installation: null,
+    stageStatuses: saleStages(id, 1),
+  });
+
+  m.sale.findMany.mockImplementation(async () => [saleFull(1)]);
+  m.sale.findUnique.mockImplementation(async (args: { where: { saleId: number } }) =>
+    saleFull(args.where.saleId),
+  );
+  m.sale.create.mockImplementation(
+    async (args: {
+      data: {
+        saleCode: string;
+        createdByUserId: number;
+        stageStatuses?: { create: Array<{ stageCode: string; status: string; updatedByUserId: number }> };
+      };
+    }) => {
+      const { saleCode, createdByUserId, stageStatuses } = args.data;
+      const sid = 1;
+      return {
+        ...saleFull(sid),
+        saleCode,
+        createdByUserId,
+        stageStatuses:
+          stageStatuses?.create?.map((s, i) => ({
+            saleStageStatusId: i + 1,
+            saleId: sid,
+            stageCode: s.stageCode,
+            status: s.status,
+            updatedByUserId: s.updatedByUserId,
+            updatedAt: now(),
+          })) ?? saleStages(sid, createdByUserId),
+      };
+    },
+  );
+  m.sale.update.mockImplementation(async (args: { where: { saleId: number }; data: object }) => ({
+    ...saleFull(args.where.saleId),
     ...args.data,
   }));
-  m.client.update.mockImplementation(async (args: { where: { id: number }; data: object }) => ({
-    id: args.where.id,
-    name: 'C',
-    email: 'e@e.com',
-    cnic: 'x',
-    irNo: 'ir',
-    phone: 'p',
+
+  m.saleAuditLog.findMany.mockResolvedValue([]);
+
+  const catalog = (prefix: string, idField: string, nameField: string) => {
+    const row = (id: number) => ({
+      [idField]: id,
+      [nameField]: `${prefix}-${id}`,
+      isActive: true,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    return { row };
+  };
+
+  const permRow = catalog('perm', 'permissionId', 'permissionCode');
+  m.permission.findMany.mockResolvedValue([]);
+  m.permission.findUnique.mockImplementation(
+    async (args: { where: { permissionId?: number; permissionCode?: string } }) => {
+      if (args.where.permissionId != null) {
+        return permRow.row(args.where.permissionId);
+      }
+      if (args.where.permissionCode != null) {
+        return null;
+      }
+      return null;
+    },
+  );
+  m.permission.create.mockImplementation(async (args: { data: object }) => ({
+    permissionId: 1,
+    permissionCode: 'x',
+    description: null,
+    isActive: true,
+    createdAt: now(),
+    updatedAt: now(),
     ...args.data,
   }));
-  m.client.delete.mockImplementation(async (args: { where: { id: number } }) => ({
-    id: args.where.id,
-    name: 'C',
-    email: 'e@e.com',
-    cnic: 'x',
-    irNo: 'ir',
-    phone: 'p',
+  m.permission.update.mockImplementation(async (args: { where: { permissionId: number }; data: object }) => ({
+    ...permRow.row(args.where.permissionId),
+    ...args.data,
   }));
-  m.client.findFirst.mockResolvedValue(null);
+  m.permission.delete.mockImplementation(async (args: { where: { permissionId: number } }) =>
+    permRow.row(args.where.permissionId),
+  );
+  m.permission.findFirst.mockResolvedValue(null);
+
+  m.rolePermission.findMany.mockResolvedValue([]);
+  m.rolePermission.findUnique.mockImplementation(
+    async (args: {
+      where:
+        | { rolePermissionId: number }
+        | { roleId_permissionId: { roleId: number; permissionId: number } };
+    }) => {
+      if ('rolePermissionId' in args.where) {
+        return {
+          rolePermissionId: args.where.rolePermissionId,
+          roleId: 1,
+          permissionId: 1,
+          createdAt: now(),
+          updatedAt: now(),
+        };
+      }
+      return null;
+    },
+  );
+  m.rolePermission.create.mockImplementation(async (args: { data: object }) => ({
+    rolePermissionId: 1,
+    roleId: 1,
+    permissionId: 1,
+    createdAt: now(),
+    updatedAt: now(),
+    ...args.data,
+  }));
+  m.rolePermission.update.mockImplementation(
+    async (args: { where: { rolePermissionId: number }; data: object }) => ({
+      rolePermissionId: args.where.rolePermissionId,
+      roleId: 1,
+      permissionId: 1,
+      createdAt: now(),
+      updatedAt: now(),
+      ...args.data,
+    }),
+  );
+  m.rolePermission.delete.mockImplementation(async (args: { where: { rolePermissionId: number } }) => ({
+    rolePermissionId: args.where.rolePermissionId,
+    roleId: 1,
+    permissionId: 1,
+    createdAt: now(),
+    updatedAt: now(),
+  }));
+  m.rolePermission.findFirst.mockResolvedValue(null);
+
+  const dev = catalog('dev', 'deviceId', 'deviceName');
+  m.device.findMany.mockResolvedValue([]);
+  m.device.findUnique.mockImplementation(async (args: { where: { deviceId: number } }) =>
+    dev.row(args.where.deviceId),
+  );
+  m.device.create.mockImplementation(async (args: { data: object }) => ({ ...dev.row(1), ...args.data }));
+  m.device.update.mockImplementation(async (args: { where: { deviceId: number }; data: object }) => ({
+    ...dev.row(args.where.deviceId),
+    ...args.data,
+  }));
+  m.device.delete.mockImplementation(async (args: { where: { deviceId: number } }) => dev.row(args.where.deviceId));
+  m.device.findFirst.mockResolvedValue(null);
+
+  const simR = catalog('sim', 'simId', 'simName');
+  m.sim.findMany.mockResolvedValue([]);
+  m.sim.findUnique.mockImplementation(async (args: { where: { simId: number } }) => simR.row(args.where.simId));
+  m.sim.create.mockImplementation(async (args: { data: object }) => ({ ...simR.row(1), ...args.data }));
+  m.sim.update.mockImplementation(async (args: { where: { simId: number }; data: object }) => ({
+    ...simR.row(args.where.simId),
+    ...args.data,
+  }));
+  m.sim.delete.mockImplementation(async (args: { where: { simId: number } }) => simR.row(args.where.simId));
+  m.sim.findFirst.mockResolvedValue(null);
+
+  const combo = catalog('combo', 'deviceComboId', 'comboName');
+  m.deviceCombo.findMany.mockResolvedValue([]);
+  m.deviceCombo.findUnique.mockImplementation(
+    async (args: { where: { deviceComboId: number } }) => combo.row(args.where.deviceComboId),
+  );
+  m.deviceCombo.create.mockImplementation(async (args: { data: object }) => ({ ...combo.row(1), ...args.data }));
+  m.deviceCombo.update.mockImplementation(
+    async (args: { where: { deviceComboId: number }; data: object }) => ({
+      ...combo.row(args.where.deviceComboId),
+      ...args.data,
+    }),
+  );
+  m.deviceCombo.delete.mockImplementation(
+    async (args: { where: { deviceComboId: number } }) => combo.row(args.where.deviceComboId),
+  );
+  m.deviceCombo.findFirst.mockResolvedValue(null);
+
+  const acc = catalog('acc', 'accessoryId', 'accessoryName');
+  m.accessory.findMany.mockResolvedValue([]);
+  m.accessory.findUnique.mockImplementation(
+    async (args: { where: { accessoryId: number } }) => acc.row(args.where.accessoryId),
+  );
+  m.accessory.create.mockImplementation(async (args: { data: object }) => ({ ...acc.row(1), ...args.data }));
+  m.accessory.update.mockImplementation(async (args: { where: { accessoryId: number }; data: object }) => ({
+    ...acc.row(args.where.accessoryId),
+    ...args.data,
+  }));
+  m.accessory.delete.mockImplementation(
+    async (args: { where: { accessoryId: number } }) => acc.row(args.where.accessoryId),
+  );
+  m.accessory.findFirst.mockResolvedValue(null);
 }

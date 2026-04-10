@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -7,9 +7,21 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 export class EmployeesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateEmployeeDto) {
+  private async assertUserLink(userId: number | undefined) {
+    if (userId == null) return;
+    const user = await this.prisma.appUser.findUnique({ where: { userId } });
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+    const linked = await this.prisma.employee.findUnique({ where: { userId } });
+    if (linked) {
+      throw new ConflictException(`User ${userId} is already linked to employee ${linked.employeeId}`);
+    }
+  }
+
+  async create(dto: CreateEmployeeDto) {
+    await this.assertUserLink(dto.userId);
     return this.prisma.employee.create({
       data: {
+        userId: dto.userId,
         emailId: dto.emailId,
         primaryMobileNo: dto.primaryMobileNo,
         cnic: dto.cnic,
@@ -32,7 +44,10 @@ export class EmployeesService {
   }
 
   async update(employeeId: number, dto: UpdateEmployeeDto) {
-    await this.findOne(employeeId);
+    const row = await this.findOne(employeeId);
+    if (dto.userId !== undefined && dto.userId !== row.userId && dto.userId != null) {
+      await this.assertUserLink(dto.userId);
+    }
     return this.prisma.employee.update({ where: { employeeId }, data: dto });
   }
 

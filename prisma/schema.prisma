@@ -15,6 +15,40 @@ enum DesignationType {
   Technician
 }
 
+enum SaleStageCode {
+  SALES
+  ACCOUNTS
+  OPERATIONS
+  TECHNICIAN
+}
+
+enum StageStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  HELD
+  REJECTED
+}
+
+enum SaleType {
+  CREDIT
+  CASH
+  CHEQUE
+  TRANSFER
+}
+
+enum AccountsDecision {
+  HOLD
+  APPROVED
+  REJECTED
+  CONTINUE
+}
+
+enum TransmissionType {
+  AUTO
+  MANUAL
+}
+
 model Office {
   officeId   Int      @id @default(autoincrement()) @map("OfficeID")
   officeName String   @unique @map("OfficeName")
@@ -33,6 +67,9 @@ model Product {
   isActive    Boolean  @default(true) @map("IsActive")
   createdAt   DateTime @default(now()) @map("CreatedAt")
   updatedAt   DateTime @updatedAt @map("UpdatedAt")
+
+  saleProductDetails        SaleProductDetails[]
+  saleOperationsAssignments SaleOperationsAssignment[]
 
   @@map("Product")
 }
@@ -67,9 +104,9 @@ model BankAccount {
 }
 
 model City {
-  cityId   Int      @id @default(autoincrement()) @map("CityID")
-  cityName String   @unique @map("CityName")
-  isActive Boolean  @default(true) @map("IsActive")
+  cityId    Int      @id @default(autoincrement()) @map("CityID")
+  cityName  String   @unique @map("CityName")
+  isActive  Boolean  @default(true) @map("IsActive")
   createdAt DateTime @default(now()) @map("CreatedAt")
   updatedAt DateTime @updatedAt @map("UpdatedAt")
 
@@ -96,6 +133,19 @@ model Vendor {
   @@map("Vendor")
 }
 
+model Permission {
+  permissionId   Int      @id @default(autoincrement()) @map("PermissionID")
+  permissionCode String   @unique @map("PermissionCode")
+  description    String?  @map("Description")
+  isActive       Boolean  @default(true) @map("IsActive")
+  createdAt      DateTime @default(now()) @map("CreatedAt")
+  updatedAt      DateTime @updatedAt @map("UpdatedAt")
+
+  rolePermissions RolePermission[]
+
+  @@map("Permission")
+}
+
 model Role {
   roleId      Int      @id @default(autoincrement()) @map("RoleID")
   roleName    String   @unique @map("RoleName")
@@ -104,74 +154,101 @@ model Role {
   createdAt   DateTime @default(now()) @map("CreatedAt")
   updatedAt   DateTime @updatedAt @map("UpdatedAt")
 
-  userRoles UserRole[]
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
 
   @@map("Role")
 }
 
-model Employee {
-  employeeId        Int              @id @default(autoincrement()) @map("EmployeeID")
-  emailId           String?          @unique @map("EmailID")
-  primaryMobileNo   String?          @unique @map("PrimaryMobileNo")
-  cnic              String           @unique @map("CNIC")
-  designation       DesignationType  @map("Designation")
-  nextOfKin         String?          @map("NextOfKin")
-  nextOfKinContact  String?          @map("NextOfKinContact")
-  isActive          Boolean          @default(true) @map("IsActive")
-  createdAt         DateTime         @default(now()) @map("CreatedAt")
-  updatedAt         DateTime         @updatedAt @map("UpdatedAt")
+model RolePermission {
+  rolePermissionId Int      @id @default(autoincrement()) @map("RolePermissionID")
+  roleId           Int      @map("RoleID")
+  permissionId     Int      @map("PermissionID")
+  createdAt        DateTime @default(now()) @map("CreatedAt")
+  updatedAt        DateTime @updatedAt @map("UpdatedAt")
 
+  role       Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [permissionId], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("RolePermission")
+}
+
+model Employee {
+  employeeId       Int             @id @default(autoincrement()) @map("EmployeeID")
+  userId           Int?            @unique @map("UserID")
+  emailId          String?         @unique @map("EmailID")
+  primaryMobileNo  String?         @unique @map("PrimaryMobileNo")
+  cnic             String          @unique @map("CNIC")
+  designation      DesignationType @map("Designation")
+  nextOfKin        String?         @map("NextOfKin")
+  nextOfKinContact String?         @map("NextOfKinContact")
+  isActive         Boolean         @default(true) @map("IsActive")
+  createdAt        DateTime        @default(now()) @map("CreatedAt")
+  updatedAt        DateTime        @updatedAt @map("UpdatedAt")
+
+  user          AppUser?       @relation(fields: [userId], references: [userId])
   zoneEmployees ZoneEmployee[]
 
   @@map("Employee")
 }
 
 model AppUser {
-  userId               Int       @id @default(autoincrement()) @map("UserID")
-  email                String    @unique @map("EmailID")
-  passwordHash         String    @map("PasswordHash")
-  dob                  DateTime  @map("DOB")
-  cnic                 String    @unique @map("CNIC")
-  contactNo            String    @map("ContactNo")
-  address              String    @map("Address")
-  createdAt            DateTime  @default(now()) @map("CreatedAt")
-  updatedAt            DateTime  @updatedAt @map("UpdatedAt")
+  userId       Int      @id @default(autoincrement()) @map("UserID")
+  email        String   @unique @map("EmailID")
+  passwordHash String   @map("PasswordHash")
+  dob          DateTime @map("DOB")
+  cnic         String   @unique @map("CNIC")
+  contactNo    String   @map("ContactNo")
+  address      String   @map("Address")
+  createdAt    DateTime @default(now()) @map("CreatedAt")
+  updatedAt    DateTime @updatedAt @map("UpdatedAt")
 
-  userRoles           UserRole[]
-  assignedUserRoles   UserRole[]           @relation("UserRoleAssignedBy")
-  refreshTokens        RefreshToken[]
+  employee Employee?
+
+  userRoles         UserRole[]
+  assignedUserRoles UserRole[] @relation("UserRoleAssignedBy")
+  refreshTokens     RefreshToken[]
+
+  createdSales               Sale[]                     @relation("SaleCreatedBy")
+  accountsReviews            SaleAccountsReview[]       @relation("AccountsReviewedBy")
+  operationsAsTechnician     SaleOperationsAssignment[] @relation("AssignedTechnician")
+  operationsAssignedBy       SaleOperationsAssignment[] @relation("AssignedByOperations")
+  installationsAsInstaller   SaleInstallation[]         @relation("InstalledByTechnician")
+  saleStageStatusUpdates     SaleStageStatus[]          @relation("StageStatusUpdatedBy")
+  saleAuditLogs              SaleAuditLog[]             @relation("AuditChangedBy")
 
   @@map("AppUser")
 }
 
 model RefreshToken {
-  refreshTokenId   Int       @id @default(autoincrement()) @map("RefreshTokenID")
-  userId           Int       @map("UserID")
-  tokenHash        String    @unique @map("TokenHash")
-  issuedAt         DateTime  @default(now()) @map("IssuedAt")
-  expiresAt        DateTime  @map("ExpiresAt")
-  revokedAt        DateTime? @map("RevokedAt")
-  revokedReason    String?   @map("RevokedReason")
-  replacedByTokenId Int?     @map("ReplacedByTokenID")
-  userAgent        String?   @map("UserAgent")
-  ipv4             String?   @map("IPV4")
-  ipv6             String?   @map("IPV6")
+  refreshTokenId    Int       @id @default(autoincrement()) @map("RefreshTokenID")
+  userId            Int       @map("UserID")
+  tokenHash         String    @unique @map("TokenHash")
+  issuedAt          DateTime  @default(now()) @map("IssuedAt")
+  expiresAt         DateTime  @map("ExpiresAt")
+  revokedAt         DateTime? @map("RevokedAt")
+  revokedReason     String?   @map("RevokedReason")
+  replacedByTokenId Int?      @map("ReplacedByTokenID")
+  userAgent         String?   @map("UserAgent")
+  ipv4              String?   @map("IPV4")
+  ipv6              String?   @map("IPV6")
 
-  user           AppUser       @relation(fields: [userId], references: [userId])
-  replacedBy     RefreshToken? @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [refreshTokenId])
+  user           AppUser        @relation(fields: [userId], references: [userId])
+  replacedBy     RefreshToken?  @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [refreshTokenId])
   replacedTokens RefreshToken[] @relation("RefreshTokenReplacement")
 
   @@map("RefreshToken")
 }
 
 model UserRole {
-  userRoleId        Int      @id @default(autoincrement()) @map("UserRoleID")
-  userId            Int      @map("UserID")
-  roleId            Int      @map("RoleID")
-  assignedAt        DateTime @default(now()) @map("AssignedAt")
-  assignedByUserId  Int?     @map("AssignedByUserID")
-  createdAt         DateTime @default(now()) @map("CreatedAt")
-  updatedAt         DateTime @updatedAt @map("UpdatedAt")
+  userRoleId       Int      @id @default(autoincrement()) @map("UserRoleID")
+  userId           Int      @map("UserID")
+  roleId           Int      @map("RoleID")
+  assignedAt       DateTime @default(now()) @map("AssignedAt")
+  assignedByUserId Int?     @map("AssignedByUserID")
+  createdAt        DateTime @default(now()) @map("CreatedAt")
+  updatedAt        DateTime @updatedAt @map("UpdatedAt")
 
   user       AppUser @relation(fields: [userId], references: [userId])
   role       Role    @relation(fields: [roleId], references: [roleId])
@@ -188,6 +265,8 @@ model ClientCategory {
   createdAt    DateTime @default(now()) @map("CreatedAt")
   updatedAt    DateTime @updatedAt @map("UpdatedAt")
 
+  saleClientDetails SaleClientDetails[]
+
   @@map("ClientCategory")
 }
 
@@ -200,6 +279,9 @@ model Package {
   createdAt         DateTime @default(now()) @map("CreatedAt")
   updatedAt         DateTime @updatedAt @map("UpdatedAt")
 
+  saleProductDetails        SaleProductDetails[]
+  saleOperationsAssignments SaleOperationsAssignment[]
+
   @@map("Package")
 }
 
@@ -211,8 +293,9 @@ model Zone {
   createdAt DateTime @default(now()) @map("CreatedAt")
   updatedAt DateTime @updatedAt @map("UpdatedAt")
 
-  office        Office         @relation(fields: [officeId], references: [officeId])
-  zoneEmployees ZoneEmployee[]
+  office                     Office                     @relation(fields: [officeId], references: [officeId])
+  zoneEmployees              ZoneEmployee[]
+  saleOperationsAssignments SaleOperationsAssignment[]
 
   @@unique([officeId, zoneName])
   @@map("Zone")
@@ -232,11 +315,213 @@ model ZoneEmployee {
   @@map("ZoneEmployee")
 }
 
-model Client {
-  id    Int    @id @default(autoincrement())
-  name  String
-  email String @unique
-  cnic  String @unique
-  irNo  String @map("ir.no")
-  phone String
+model Device {
+  deviceId   Int      @id @default(autoincrement()) @map("DeviceID")
+  deviceName String   @unique @map("DeviceName")
+  isActive   Boolean  @default(true) @map("IsActive")
+  createdAt  DateTime @default(now()) @map("CreatedAt")
+  updatedAt  DateTime @updatedAt @map("UpdatedAt")
+
+  saleOperationsAssignments SaleOperationsAssignment[]
+
+  @@map("Device")
+}
+
+model Sim {
+  simId     Int      @id @default(autoincrement()) @map("SIMID")
+  simName   String   @unique @map("SIMName")
+  isActive  Boolean  @default(true) @map("IsActive")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  saleOperationsAssignments SaleOperationsAssignment[]
+
+  @@map("SIM")
+}
+
+model DeviceCombo {
+  deviceComboId Int      @id @default(autoincrement()) @map("DeviceComboID")
+  comboName     String   @unique @map("ComboName")
+  isActive      Boolean  @default(true) @map("IsActive")
+  createdAt     DateTime @default(now()) @map("CreatedAt")
+  updatedAt     DateTime @updatedAt @map("UpdatedAt")
+
+  saleOperationsAssignments SaleOperationsAssignment[]
+
+  @@map("DeviceCombo")
+}
+
+model Accessory {
+  accessoryId   Int      @id @default(autoincrement()) @map("AccessoryID")
+  accessoryName String   @unique @map("AccessoryName")
+  isActive      Boolean  @default(true) @map("IsActive")
+  createdAt     DateTime @default(now()) @map("CreatedAt")
+  updatedAt     DateTime @updatedAt @map("UpdatedAt")
+
+  operationsAsAccessory1 SaleOperationsAssignment[] @relation("Accessory1")
+  operationsAsAccessory2 SaleOperationsAssignment[] @relation("Accessory2")
+  operationsAsAccessory3 SaleOperationsAssignment[] @relation("Accessory3")
+
+  @@map("Accessory")
+}
+
+model Sale {
+  saleId          Int      @id @default(autoincrement()) @map("SaleID")
+  saleCode        String   @unique @map("SaleCode")
+  createdByUserId Int      @map("CreatedByUserID")
+  createdAt       DateTime @default(now()) @map("CreatedAt")
+  updatedAt       DateTime @updatedAt @map("UpdatedAt")
+  isActive        Boolean  @default(true) @map("IsActive")
+
+  createdBy AppUser @relation("SaleCreatedBy", fields: [createdByUserId], references: [userId])
+
+  clientDetails        SaleClientDetails?
+  productDetails       SaleProductDetails?
+  accountsReview       SaleAccountsReview?
+  operationsAssignment SaleOperationsAssignment?
+  installation         SaleInstallation?
+  stageStatuses        SaleStageStatus[]
+  auditLogs            SaleAuditLog[]
+
+  @@map("Sale")
+}
+
+model SaleClientDetails {
+  saleClientDetailsId Int       @id @default(autoincrement()) @map("SaleClientDetailsID")
+  saleId              Int       @unique @map("SaleID")
+  clientCategoryId    Int?      @map("ClientCategoryID")
+  irNo                String?   @map("IRNo")
+  fullName            String?   @map("FullName")
+  cnicNo              String?   @map("CNICNo")
+  phoneHome           String?   @map("PhoneHome")
+  emailId             String?   @map("EmailID")
+  address             String?   @map("Address")
+  clientStatus        String?   @map("ClientStatus")
+  cellNo              String?   @map("CellNo")
+  fatherName          String?   @map("FatherName")
+  dateOfBirth         DateTime? @map("DateOfBirth")
+  phoneOffice         String?   @map("PhoneOffice")
+  companyDepartment   String?   @map("CompanyDepartment")
+  addressLine2        String?   @map("AddressLine2")
+
+  sale           Sale            @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  clientCategory ClientCategory? @relation(fields: [clientCategoryId], references: [categoryId])
+
+  @@map("SaleClientDetails")
+}
+
+model SaleProductDetails {
+  saleProductDetailsId Int       @id @default(autoincrement()) @map("SaleProductDetailsID")
+  saleId               Int       @unique @map("SaleID")
+  productId            Int?      @map("ProductID")
+  saleAmount           Decimal?  @map("SaleAmount") @db.Decimal(12, 2)
+  saleType             SaleType? @map("SaleType")
+  packageId            Int?      @map("PackageID")
+  renewalCharges       Decimal?  @map("RenewalCharges") @db.Decimal(12, 2)
+  customTypeValue      Int?      @map("CustomTypeValue")
+  salesRemarks         String?   @map("SalesRemarks")
+
+  sale    Sale     @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [productId])
+  package Package? @relation(fields: [packageId], references: [packageId])
+
+  @@map("SaleProductDetails")
+}
+
+model SaleAccountsReview {
+  saleAccountsReviewId Int               @id @default(autoincrement()) @map("SaleAccountsReviewID")
+  saleId               Int               @unique @map("SaleID")
+  accountsRemark       String?           @map("AccountsRemark")
+  decision             AccountsDecision? @map("Decision")
+  reviewedByUserId     Int?              @map("ReviewedByUserID")
+  reviewedAt           DateTime?         @map("ReviewedAt")
+
+  sale       Sale     @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  reviewedBy AppUser? @relation("AccountsReviewedBy", fields: [reviewedByUserId], references: [userId])
+
+  @@map("SaleAccountsReview")
+}
+
+model SaleOperationsAssignment {
+  saleOperationsAssignmentId Int       @id @default(autoincrement()) @map("SaleOperationsAssignmentID")
+  saleId                     Int       @unique @map("SaleID")
+  productId                  Int?      @map("ProductID")
+  zoneId                     Int?      @map("ZoneID")
+  deviceComboId              Int?      @map("DeviceComboID")
+  simId                      Int?      @map("SIMID")
+  accessory1Id               Int?      @map("Accessory1ID")
+  accessory2Id               Int?      @map("Accessory2ID")
+  accessory3Id               Int?      @map("Accessory3ID")
+  packageId                  Int?      @map("PackageID")
+  assignedTechnicianUserId   Int?      @map("AssignedTechnicianUserID")
+  deviceId                   Int?      @map("DeviceID")
+  assignedByUserId           Int?      @map("AssignedByUserID")
+  assignedAt                 DateTime? @map("AssignedAt")
+
+  sale                 Sale          @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  product              Product?      @relation(fields: [productId], references: [productId])
+  zone                 Zone?         @relation(fields: [zoneId], references: [zoneId])
+  deviceCombo          DeviceCombo?  @relation(fields: [deviceComboId], references: [deviceComboId])
+  sim                  Sim?          @relation(fields: [simId], references: [simId])
+  accessory1           Accessory?    @relation("Accessory1", fields: [accessory1Id], references: [accessoryId])
+  accessory2           Accessory?    @relation("Accessory2", fields: [accessory2Id], references: [accessoryId])
+  accessory3           Accessory?    @relation("Accessory3", fields: [accessory3Id], references: [accessoryId])
+  package              Package?      @relation(fields: [packageId], references: [packageId])
+  assignedTechnician   AppUser?      @relation("AssignedTechnician", fields: [assignedTechnicianUserId], references: [userId])
+  device               Device?       @relation(fields: [deviceId], references: [deviceId])
+  assignedBy           AppUser?      @relation("AssignedByOperations", fields: [assignedByUserId], references: [userId])
+
+  @@map("SaleOperationsAssignment")
+}
+
+model SaleInstallation {
+  saleInstallationId Int               @id @default(autoincrement()) @map("SaleInstallationID")
+  saleId             Int               @unique @map("SaleID")
+  installationDate   DateTime?         @map("InstallationDate")
+  renewalDate        DateTime?         @map("RenewalDate")
+  registrationNo     String?           @map("RegistrationNo")
+  engineNo           String?           @map("EngineNo")
+  transmissionType   TransmissionType? @map("TransmissionType")
+  chassisNo          String?           @map("ChassisNo")
+  makeModel          String?           @map("MakeModel")
+  vehicleYear        Int?              @map("VehicleYear")
+  color              String?           @map("Color")
+  installedByUserId  Int?              @map("InstalledByUserID")
+  installedAt        DateTime?         @map("InstalledAt")
+
+  sale        Sale     @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  installedBy AppUser? @relation("InstalledByTechnician", fields: [installedByUserId], references: [userId])
+
+  @@map("SaleInstallation")
+}
+
+model SaleStageStatus {
+  saleStageStatusId Int           @id @default(autoincrement()) @map("SaleStageStatusID")
+  saleId            Int           @map("SaleID")
+  stageCode         SaleStageCode @map("StageCode")
+  status            StageStatus   @default(PENDING) @map("Status")
+  updatedByUserId   Int?          @map("UpdatedByUserID")
+  updatedAt         DateTime      @updatedAt @map("UpdatedAt")
+
+  sale      Sale     @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  updatedBy AppUser? @relation("StageStatusUpdatedBy", fields: [updatedByUserId], references: [userId])
+
+  @@unique([saleId, stageCode])
+  @@map("SaleStageStatus")
+}
+
+model SaleAuditLog {
+  saleAuditLogId  Int            @id @default(autoincrement()) @map("SaleAuditLogID")
+  saleId          Int            @map("SaleID")
+  stageCode       SaleStageCode? @map("StageCode")
+  fieldName       String         @map("FieldName")
+  oldValue        String?        @map("OldValue")
+  newValue        String?        @map("NewValue")
+  changedByUserId Int            @map("ChangedByUserID")
+  changedAt       DateTime       @default(now()) @map("ChangedAt")
+
+  sale      Sale    @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  changedBy AppUser @relation("AuditChangedBy", fields: [changedByUserId], references: [userId])
+
+  @@map("SaleAuditLog")
 }
