@@ -29,13 +29,12 @@ export const postBodies = {
     minRenewalCharges: 50,
   },
   zoneEmployee: { zoneId: 1, employeeId: 1 },
-  client: {
-    name: 'John',
-    email: 'john@example.com',
-    cnic: '35202-2222222-2',
-    irNo: 'IR-1',
-    phone: '+923001234567',
-  },
+  permission: { permissionCode: 'custom.e2e.test', description: 'E2E permission' },
+  rolePermission: { roleId: 1, permissionId: 1 },
+  device: { deviceName: 'Tracker A' },
+  sim: { simName: '5G Data' },
+  deviceCombo: { comboName: 'Bundle A' },
+  accessory: { accessoryName: 'Bracket' },
 } as const;
 
 export const patchBodies = {
@@ -53,4 +52,10 @@ export const patchBodies = {
   clientCategory: { categoryName: 'Commercial' },
   package: { minCharges: 200 },
   zoneEmployee: {},
+  permission: { description: 'Updated desc' },
+  rolePermission: { roleId: 1 },
+  device: { deviceName: 'Tracker B' },
+  sim: { simName: 'LTE' },
+  deviceCombo: { comboName: 'Bundle B' },
+  accessory: { accessoryName: 'Cable' },
 } as const;

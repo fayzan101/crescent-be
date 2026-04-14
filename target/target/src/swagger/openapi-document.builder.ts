@@ -1,15 +1,70 @@
 import { DocumentBuilder } from '@nestjs/swagger';
+
 export const JWT_AUTH_BEARER = 'JWT-auth';
+
+/**
+ * Tag order in Swagger UI (unknown tags sort after these, alphabetically).
+ * Keep in sync with `@ApiTags(...)` on controllers.
+ */
+export const SWAGGER_TAG_ORDER: readonly string[] = [
+  'Auth',
+  'Users',
+  'Sales',
+  'Permissions',
+  'Role permissions',
+  'Roles',
+  'User roles',
+  'Employees',
+  'Devices',
+  'SIMs',
+  'Device combos',
+  'Accessories',
+  'Offices',
+  'Zones',
+  'Zone employees',
+  'Products',
+  'Packages',
+  'Client categories',
+  'Banks',
+  'Bank accounts',
+  'Cities',
+  'Vendors',
+];
+
+function buildDescription(): string {
+  return [
+    'REST API for onboarding, **RBAC**, **sales workflow**, and master data. All resource paths are under **`/api/v1/...`** unless noted.',
+    '',
+    '### Authentication',
+    '- **Public:** `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`.',
+    '- **JWT:** all other routes require `Authorization: Bearer <accessToken>`. Use **Authorize** in Swagger UI.',
+    '',
+    '### RBAC (fine-grained permissions)',
+    '- Permission codes are defined in the codebase (`portal-permissions`) and stored in **`Permission`** / **`RolePermission`**.',
+    '- Seed defaults: `npx prisma db seed` creates permissions and a **System Administrator** role with all of them.',
+    '- Assign roles to users with **`User roles`**; grant permissions to roles with **`Role permissions`**.',
+    '- **Sales** endpoints use `@RequirePermissions(...)`: missing permission returns **403**.',
+    '',
+    '### Sales workflow',
+    '- `POST /api/v1/sales` — create sale, initial stage rows, and optional initial sales payload (single call).',
+    '- `GET /api/v1/sales`, `GET /api/v1/sales/:id` — list / detail (needs `sales.view`).',
+    '- `GET /api/v1/sales/:id/audit` — audit trail (`sales.audit.view`).',
+    '- **Stage updates (PATCH):**',
+    '  - `/api/v1/sales/:id/accounts-stage` — accounts review / decision.',
+    '  - `/api/v1/sales/:id/operations-stage` — device, zone, technician, etc.',
+    '  - `/api/v1/sales/:id/technician-stage` — installation fields.',
+    '',
+    '### Master / lookup data',
+    'CRUD for offices, zones, products, banks, cities, vendors, employees, packages, **devices / SIMs / combos / accessories**, etc.',
+    '',
+    'Passwords and token hashes are never returned in responses.',
+  ].join('\n');
+}
+
 export function buildOpenApiDocument() {
-  return new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .setTitle('Crescent API')
-    .setDescription(
-      'REST API for onboarding and reference data. Base path for resources is `/api/v1/...`. ' +
-        '**Authentication:** call **Auth → login** or **Auth → register** to obtain tokens, then click **Authorize** and enter `Bearer <token>` (or only the token, depending on the UI). ' +
-        'Use **Auth → refresh** to rotate refresh tokens and issue new access tokens, and **Auth → logout** to revoke a refresh token. ' +
-        'All routes except `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/refresh`, and `POST /api/v1/auth/logout` require a valid JWT. ' +
-        'Sensitive fields (passwords, token hashes) are never returned where noted in operation summaries.',
-    )
+    .setDescription(buildDescription())
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -17,25 +72,44 @@ export function buildOpenApiDocument() {
         scheme: 'bearer',
         bearerFormat: 'JWT',
         description:
-          'JWT access token from `POST /api/v1/auth/login` or `POST /api/v1/auth/register`. Example: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`',
+          'Paste the **accessToken** from login or register. Prefix `Bearer ` if your client does not add it automatically.',
       },
       JWT_AUTH_BEARER,
-    )
-    .addTag('Auth', 'Authentication — login is public; use returned token for other endpoints')
-    .addTag('Users', 'Application users')
-    .addTag('Clients', 'Legacy client records')
-    .addTag('Offices', 'Company offices')
-    .addTag('Zones', 'Geographic zones')
-    .addTag('Products', 'Product catalog')
-    .addTag('Banks', 'Financial institutions')
-    .addTag('Bank accounts', 'Customer bank accounts')
-    .addTag('Cities', 'Geographic locations')
-    .addTag('Vendors', 'Suppliers or service providers')
-    .addTag('Roles', 'User roles and permissions')
-    .addTag('Employees', 'Company employees')
-    .addTag('User roles', 'Mapping of users to roles')
-    .addTag('Client categories', 'Types of clients')
-    .addTag('Packages', 'Service packages')
-    .addTag('Zone employees', 'Employees assigned to specific zones')
-    .build();
+    );
+
+  const publicApiUrl = process.env.API_PUBLIC_URL?.trim();
+  if (publicApiUrl) {
+    builder.addServer(publicApiUrl.replace(/\/$/, ''), 'Configured API (API_PUBLIC_URL)');
+  }
+  builder.addServer('/', 'Current host (e.g. http://localhost:3000)');
+
+  for (const tag of SWAGGER_TAG_ORDER) {
+    const descriptions: Record<string, string> = {
+      Auth: 'Login, register, refresh, logout — no JWT on these operations',
+      Users: 'Application users (`AppUser`); JWT required',
+      Sales: 'Sale lifecycle, stage progression, and audit — JWT + permission codes',
+      Permissions: 'Permission catalog (`permissionCode` strings used by RBAC)',
+      'Role permissions': 'Links roles to permissions',
+      Roles: 'Named roles; combine with Role permissions for access control',
+      'User roles': 'Assign roles to application users',
+      Employees: 'HR records; optional `userId` links to `AppUser`',
+      Devices: 'Operations catalog: physical device types',
+      SIMs: 'Operations catalog: SIM / data products',
+      'Device combos': 'Operations catalog: bundled device offerings',
+      Accessories: 'Operations catalog: add-on accessories',
+      Offices: 'Company offices',
+      Zones: 'Zones under an office',
+      'Zone employees': 'Which employees belong to which zone',
+      Products: 'Sellable / service products',
+      Packages: 'Pricing packages (decimal charges)',
+      'Client categories': 'Client segmentation for sale client details',
+      Banks: 'Bank master data',
+      'Bank accounts': 'Bank account records',
+      Cities: 'City master',
+      Vendors: 'Vendor / supplier records',
+    };
+    builder.addTag(tag, descriptions[tag] ?? '');
+  }
+
+  return builder.build();
 }

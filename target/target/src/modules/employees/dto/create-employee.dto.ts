@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DesignationType as PrismaDesignationTypeEnum } from '@prisma/client';
 import type { DesignationType as PrismaDesignationType } from '@prisma/client';
-import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 const DesignationTypeEnum = PrismaDesignationTypeEnum ?? {
   GM: 'GM',
@@ -13,6 +14,12 @@ const DesignationTypeEnum = PrismaDesignationTypeEnum ?? {
 type DesignationType = PrismaDesignationType;
 
 export class CreateEmployeeDto {
+  @ApiPropertyOptional({ description: 'Optional link to AppUser for login ↔ HR identity' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  userId?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsEmail()

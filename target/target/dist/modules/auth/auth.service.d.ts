@@ -1,49 +1,41 @@
 import { JwtService } from '@nestjs/jwt';
+import { AppUser } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { RegisterDto } from './dto/register.dto';
 export interface JwtPayload {
     sub: number;
-    username: string;
+    email: string;
 }
+type AppUserPublic = Omit<AppUser, 'passwordHash'>;
+type RefreshTokenMeta = {
+    userAgent?: string | null;
+    ipv4?: string | null;
+    ipv6?: string | null;
+};
 export declare class AuthService {
     private readonly prisma;
     private readonly jwtService;
     constructor(prisma: PrismaService, jwtService: JwtService);
-    validateUser(username: string, password: string): Promise<{
-        createdAt: Date;
-        updatedAt: Date;
-        employeeId: number | null;
-        isActive: boolean;
-        userId: number;
-        userName: string;
-        isTempPassword: boolean;
-        mustChangePassword: boolean;
-        isEmailVerified: boolean;
-        isMobileVerified: boolean;
-        isLocked: boolean;
-        failedLoginAttempts: number;
-        lastLoginAt: Date | null;
-        lastPasswordChangedAt: Date | null;
-        createdByUserId: number | null;
-    }>;
-    login(username: string, password: string): Promise<{
+    private toPublic;
+    validateUser(email: string, password: string): Promise<AppUserPublic>;
+    register(dto: RegisterDto): Promise<{
         accessToken: string;
-        user: {
-            createdAt: Date;
-            updatedAt: Date;
-            employeeId: number | null;
-            isActive: boolean;
-            userId: number;
-            userName: string;
-            isTempPassword: boolean;
-            mustChangePassword: boolean;
-            isEmailVerified: boolean;
-            isMobileVerified: boolean;
-            isLocked: boolean;
-            failedLoginAttempts: number;
-            lastLoginAt: Date | null;
-            lastPasswordChangedAt: Date | null;
-            createdByUserId: number | null;
-        };
+        refreshToken: string;
+        user: AppUserPublic;
+    }>;
+    private createRefreshToken;
+    login(email: string, password: string, meta?: RefreshTokenMeta): Promise<{
+        accessToken: string;
+        refreshToken: string;
+        user: AppUserPublic;
+    }>;
+    refresh(refreshToken: string, meta?: RefreshTokenMeta): Promise<{
+        accessToken: string;
+        refreshToken: string;
+    }>;
+    logout(refreshToken: string): Promise<{
+        revoked: boolean;
     }>;
     verifyToken(token: string): Promise<JwtPayload>;
 }
+export {};
