@@ -1,26 +1,46 @@
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { LogoutDto } from './dto/logout.dto';
+import { RegisterDto } from './dto/register.dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
-    login(dto: LoginDto): Promise<{
+    private getRequestMeta;
+    login(dto: LoginDto, req: Request): Promise<{
         accessToken: string;
+        refreshToken: string;
         user: {
             createdAt: Date;
             updatedAt: Date;
-            employeeId: number | null;
-            isActive: boolean;
+            address: string;
             userId: number;
-            userName: string;
-            isTempPassword: boolean;
-            mustChangePassword: boolean;
-            isEmailVerified: boolean;
-            isMobileVerified: boolean;
-            isLocked: boolean;
-            failedLoginAttempts: number;
-            lastLoginAt: Date | null;
-            lastPasswordChangedAt: Date | null;
-            createdByUserId: number | null;
+            cnic: string;
+            email: string;
+            dob: Date;
+            contactNo: string;
         };
+    }>;
+    register(dto: RegisterDto): Promise<{
+        accessToken: string;
+        refreshToken: string;
+        user: {
+            createdAt: Date;
+            updatedAt: Date;
+            address: string;
+            userId: number;
+            cnic: string;
+            email: string;
+            dob: Date;
+            contactNo: string;
+        };
+    }>;
+    refresh(dto: RefreshTokenDto, req: Request): Promise<{
+        accessToken: string;
+        refreshToken: string;
+    }>;
+    logout(dto: LogoutDto): Promise<{
+        revoked: boolean;
     }>;
 }

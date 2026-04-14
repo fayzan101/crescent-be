@@ -19,7 +19,88 @@ interface RouteCase {
 const api = (path: string) => path;
 
 const routes: RouteCase[] = [
-  { name: 'clients create', method: 'post', path: api('/api/v1/create-client'), body: postBodies.client, expected: 201 },
+  { name: 'sales list', method: 'get', path: api('/api/v1/sales'), expected: 200 },
+  { name: 'sales create', method: 'post', path: api('/api/v1/sales'), expected: 201 },
+  { name: 'sales get', method: 'get', path: api('/api/v1/sales/1'), expected: 200 },
+  { name: 'sales audit', method: 'get', path: api('/api/v1/sales/1/audit'), expected: 200 },
+
+  { name: 'permissions list', method: 'get', path: api('/api/v1/permissions'), expected: 200 },
+  { name: 'permissions create', method: 'post', path: api('/api/v1/permissions'), body: postBodies.permission, expected: 201 },
+  { name: 'permissions get', method: 'get', path: api('/api/v1/permissions/1'), expected: 200 },
+  { name: 'permissions patch', method: 'patch', path: api('/api/v1/permissions/1'), body: patchBodies.permission, expected: 200 },
+  { name: 'permissions delete', method: 'delete', path: api('/api/v1/permissions/1'), expected: 200 },
+
+  { name: 'role-permissions list', method: 'get', path: api('/api/v1/role-permissions'), expected: 200 },
+  {
+    name: 'role-permissions list filter',
+    method: 'get',
+    path: api('/api/v1/role-permissions?roleId=1&permissionId=1'),
+    expected: 200,
+  },
+  {
+    name: 'role-permissions create',
+    method: 'post',
+    path: api('/api/v1/role-permissions'),
+    body: postBodies.rolePermission,
+    expected: 201,
+  },
+  { name: 'role-permissions get', method: 'get', path: api('/api/v1/role-permissions/1'), expected: 200 },
+  {
+    name: 'role-permissions patch',
+    method: 'patch',
+    path: api('/api/v1/role-permissions/1'),
+    body: patchBodies.rolePermission,
+    expected: 200,
+  },
+  { name: 'role-permissions delete', method: 'delete', path: api('/api/v1/role-permissions/1'), expected: 200 },
+
+  { name: 'devices list', method: 'get', path: api('/api/v1/devices'), expected: 200 },
+  { name: 'devices create', method: 'post', path: api('/api/v1/devices'), body: postBodies.device, expected: 201 },
+  { name: 'devices get', method: 'get', path: api('/api/v1/devices/1'), expected: 200 },
+  { name: 'devices patch', method: 'patch', path: api('/api/v1/devices/1'), body: patchBodies.device, expected: 200 },
+  { name: 'devices delete', method: 'delete', path: api('/api/v1/devices/1'), expected: 200 },
+
+  { name: 'sims list', method: 'get', path: api('/api/v1/sims'), expected: 200 },
+  { name: 'sims create', method: 'post', path: api('/api/v1/sims'), body: postBodies.sim, expected: 201 },
+  { name: 'sims get', method: 'get', path: api('/api/v1/sims/1'), expected: 200 },
+  { name: 'sims patch', method: 'patch', path: api('/api/v1/sims/1'), body: patchBodies.sim, expected: 200 },
+  { name: 'sims delete', method: 'delete', path: api('/api/v1/sims/1'), expected: 200 },
+
+  { name: 'device-combos list', method: 'get', path: api('/api/v1/device-combos'), expected: 200 },
+  {
+    name: 'device-combos create',
+    method: 'post',
+    path: api('/api/v1/device-combos'),
+    body: postBodies.deviceCombo,
+    expected: 201,
+  },
+  { name: 'device-combos get', method: 'get', path: api('/api/v1/device-combos/1'), expected: 200 },
+  {
+    name: 'device-combos patch',
+    method: 'patch',
+    path: api('/api/v1/device-combos/1'),
+    body: patchBodies.deviceCombo,
+    expected: 200,
+  },
+  { name: 'device-combos delete', method: 'delete', path: api('/api/v1/device-combos/1'), expected: 200 },
+
+  { name: 'accessories list', method: 'get', path: api('/api/v1/accessories'), expected: 200 },
+  {
+    name: 'accessories create',
+    method: 'post',
+    path: api('/api/v1/accessories'),
+    body: postBodies.accessory,
+    expected: 201,
+  },
+  { name: 'accessories get', method: 'get', path: api('/api/v1/accessories/1'), expected: 200 },
+  {
+    name: 'accessories patch',
+    method: 'patch',
+    path: api('/api/v1/accessories/1'),
+    body: patchBodies.accessory,
+    expected: 200,
+  },
+  { name: 'accessories delete', method: 'delete', path: api('/api/v1/accessories/1'), expected: 200 },
 
   { name: 'offices list', method: 'get', path: api('/api/v1/offices'), expected: 200 },
   { name: 'offices create', method: 'post', path: api('/api/v1/offices'), body: postBodies.office, expected: 201 },
@@ -115,6 +196,7 @@ const protectedSamples = [
   ['GET', '/api/v1/offices'],
   ['POST', '/api/v1/offices'],
   ['GET', '/api/v1/zones'],
+  ['GET', '/api/v1/sales'],
   ['GET', '/api/v1/products/1'],
 ];
 
