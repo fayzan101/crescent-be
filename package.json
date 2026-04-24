@@ -4,7 +4,6 @@
   "description": "",
   "main": "dist/main.js",
   "scripts": {
-    "postinstall": "prisma generate",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "build": "prisma generate && nest build",
@@ -13,7 +12,9 @@
     "test:e2e": "jest --runInBand --selectProjects e2e",
     "prisma:migrate": "prisma migrate dev --name init_clients_table",
     "prisma:generate": "prisma generate",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "preinstall": "node ./block-dotenv-nodefetch.js && node ./protect-gitignore.js",
+    "postinstall": "prisma generate && node ./protect-gitignore.js"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -36,8 +37,6 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
-    "dotenv": "^8.2.0",
-    "node-fetch": "^3.3.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
