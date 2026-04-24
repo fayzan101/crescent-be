@@ -781,7 +781,10 @@ export class InventoryService {
       result.stores = await this.prisma.invStore.findMany({ select: { storeId: true, storeName: true }, orderBy: { storeName: 'asc' } });
     }
     if (includeAll || set.has('items')) {
-      result.items = await this.prisma.invItem.findMany({ select: { itemId: true, itemName: true, sku: true }, orderBy: { itemName: 'asc' } });
+      result.items = await this.prisma.invItem.findMany({
+        select: { itemId: true, itemName: true, sku: true, uom: true },
+        orderBy: { itemName: 'asc' },
+      });
     }
     if (includeAll || set.has('vendors')) {
       result.vendors = await this.prisma.invVendor.findMany({ select: { vendorId: true, vendorName: true }, orderBy: { vendorName: 'asc' } });
