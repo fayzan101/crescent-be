@@ -4,16 +4,32 @@ import { PrismaService } from '../../database/prisma.service';
 @Injectable()
 export class UserPermissionsService {
   constructor(private readonly prisma: PrismaService) {}
+  private static readonly PERMISSIONS_CACHE_TTL_MS = 60_000;
+  private readonly permissionsCache = new Map<number, { expiresAt: number; codes: Set<string> }>();
 
   /** Resolves active permission codes for a user via UserRole → Role → RolePermission → Permission. */
   async getPermissionCodesForUser(userId: number): Promise<Set<string>> {
+    const now = Date.now();
+    const cached = this.permissionsCache.get(userId);
+    if (cached && cached.expiresAt > now) {
+      return cached.codes;
+    }
+
     const rows = await this.prisma.userRole.findMany({
       where: { userId },
-      include: {
+      select: {
         role: {
-          include: {
+          select: {
+            isActive: true,
             rolePermissions: {
-              include: { permission: true },
+              select: {
+                permission: {
+                  select: {
+                    isActive: true,
+                    permissionCode: true,
+                  },
+                },
+              },
             },
           },
         },
@@ -29,6 +45,12 @@ export class UserPermissionsService {
         }
       }
     }
+
+    this.permissionsCache.set(userId, {
+      expiresAt: now + UserPermissionsService.PERMISSIONS_CACHE_TTL_MS,
+      codes,
+    });
+
     return codes;
   }
 }

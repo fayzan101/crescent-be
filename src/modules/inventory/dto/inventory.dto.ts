@@ -8,6 +8,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
@@ -194,15 +195,41 @@ export class InventoryLineDto {
   note?: string;
 }
 
+export class PurchaseOrderLineDto extends InventoryLineDto {
+  @ApiPropertyOptional({ example: 12500, description: 'Editable unit price for this PO line.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  unitPrice?: number;
+
+  @ApiPropertyOptional({
+    example: 25000,
+    description: 'Editable line total (qty x unitPrice). Used to derive unitPrice when needed.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  totalPrice?: number;
+}
+
 export class CreatePurchaseRequestDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 1, description: 'Store receiving/requesting the inventory.' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   storeId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 2, description: 'Office that raised the purchase request.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  officeId?: number;
+
+  @ApiPropertyOptional({ example: 'Need replenishment for weekly demand.' })
   @IsOptional()
   @IsString()
   @MaxLength(512)
@@ -227,19 +254,17 @@ export class ApproveRejectDto {
 }
 
 export class CreatePurchaseOrderDto {
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ example: 12, description: 'Selected approved Purchase Request ID (PR No source).' })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  purchaseRequestId?: number;
+  purchaseRequestId: number;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ example: 3, description: 'Selected vendor for the PO.' })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  vendorId?: number;
+  vendorId: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -254,12 +279,12 @@ export class CreatePurchaseOrderDto {
   @MaxLength(512)
   remarks?: string;
 
-  @ApiProperty({ type: [InventoryLineDto] })
+  @ApiProperty({ type: [PurchaseOrderLineDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => InventoryLineDto)
-  lines: InventoryLineDto[];
+  @Type(() => PurchaseOrderLineDto)
+  lines: PurchaseOrderLineDto[];
 }
 
 export class UpdatePurchaseOrderDto extends CreatePurchaseOrderDto {}

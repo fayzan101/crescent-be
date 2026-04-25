@@ -41,6 +41,67 @@ import {
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private resolvePoUnitPrice(line: { qty: number; unitPrice?: number; totalPrice?: number }): number | undefined {
+    if (typeof line.unitPrice === 'number') return line.unitPrice;
+    if (typeof line.totalPrice === 'number' && line.qty > 0) {
+      return line.totalPrice / line.qty;
+    }
+    return undefined;
+  }
+
+  private async enrichPoWithPrOffice<T extends { purchaseRequest?: { officeId?: number | null } | null }>(row: T): Promise<T> {
+    const officeId = row.purchaseRequest?.officeId;
+    if (!officeId) return row;
+    const office = await this.prisma.office.findUnique({
+      where: { officeId },
+      select: { officeId: true, officeName: true },
+    });
+    return {
+      ...row,
+      purchaseRequest: row.purchaseRequest ? { ...row.purchaseRequest, office } : row.purchaseRequest,
+    } as T;
+  }
+
+  private async enrichPoListWithPrOffice<T extends { purchaseRequest?: { officeId?: number | null } | null }>(rows: T[]): Promise<T[]> {
+    const officeIds = Array.from(
+      new Set(
+        rows
+          .map((x) => x.purchaseRequest?.officeId)
+          .filter((x): x is number => typeof x === 'number' && x > 0),
+      ),
+    );
+    if (!officeIds.length) return rows;
+    const offices = await this.prisma.office.findMany({
+      where: { officeId: { in: officeIds } },
+      select: { officeId: true, officeName: true },
+    });
+    const byId = new Map(offices.map((o) => [o.officeId, o]));
+    return rows.map((row) => {
+      const officeId = row.purchaseRequest?.officeId;
+      if (!officeId || !row.purchaseRequest) return row;
+      return {
+        ...row,
+        purchaseRequest: {
+          ...row.purchaseRequest,
+          office: byId.get(officeId) ?? null,
+        },
+      } as T;
+    });
+  }
+
+  private normalizeGrnStoreFromPo<T extends { storeId?: number | null; store?: unknown; purchaseOrder?: { storeId?: number | null; store?: unknown } | null }>(
+    row: T,
+  ): T {
+    if (row.storeId) return row;
+    const poStoreId = row.purchaseOrder?.storeId ?? null;
+    const poStore = row.purchaseOrder?.store ?? null;
+    return {
+      ...row,
+      storeId: poStoreId,
+      store: row.store ?? poStore,
+    } as T;
+  }
+
   private async nextCode(prefix: string, model: 'pr' | 'po' | 'grn' | 'iss' | 'ret' | 'trf') {
     const countMap = {
       pr: () => this.prisma.invPurchaseRequest.count(),
@@ -263,22 +324,20 @@ export class InventoryService {
   }
 
   // purchase requests
-  createPurchaseRequest(dto: CreatePurchaseRequestDto, userId: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const requestNo = await this.nextCode('PR', 'pr');
-      const created = await tx.invPurchaseRequest.create({
-        data: {
-          requestNo,
-          storeId: dto.storeId,
-          remarks: dto.remarks,
-          requestedByUserId: userId,
-          lines: {
-            create: dto.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, note: l.note })),
-          },
+  async createPurchaseRequest(dto: CreatePurchaseRequestDto, userId: number) {
+    const requestNo = await this.nextCode('PR', 'pr');
+    return this.prisma.invPurchaseRequest.create({
+      data: {
+        requestNo,
+        storeId: dto.storeId,
+        officeId: dto.officeId,
+        remarks: dto.remarks,
+        requestedByUserId: userId,
+        lines: {
+          create: dto.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, note: l.note })),
         },
-        include: { lines: true },
-      });
-      return created;
+      },
+      include: { lines: true },
     });
   }
   listPurchaseRequests() {
@@ -300,7 +359,7 @@ export class InventoryService {
     return this.prisma.$transaction(async (tx) => {
       await tx.invPurchaseRequest.update({
         where: { purchaseRequestId },
-        data: { storeId: dto.storeId, remarks: dto.remarks },
+        data: { storeId: dto.storeId, officeId: dto.officeId, remarks: dto.remarks },
       });
       if (dto.lines?.length) {
         await tx.invPurchaseRequestLine.deleteMany({ where: { purchaseRequestId } });
@@ -340,65 +399,105 @@ export class InventoryService {
 
   // purchase orders
   async createPurchaseOrder(dto: CreatePurchaseOrderDto, userId: number) {
-    if (dto.purchaseRequestId) {
-      const pr = await this.getPurchaseRequest(dto.purchaseRequestId);
-      if (pr.status !== InvApprovalStatus.APPROVED) {
-        throw new BadRequestException('Only approved purchase requests can be converted into PO');
-      }
+    if (!dto.purchaseRequestId) {
+      throw new BadRequestException('purchaseRequestId is required');
+    }
+    if (!dto.vendorId) {
+      throw new BadRequestException('vendorId is required');
+    }
+    const pr = await this.getPurchaseRequest(dto.purchaseRequestId);
+    if (pr.status !== InvApprovalStatus.APPROVED) {
+      throw new BadRequestException('Only approved purchase requests can be converted into PO');
+    }
+    if (!pr.storeId) {
+      throw new BadRequestException('Selected purchase request has no store assigned');
     }
     return this.prisma.$transaction(async (tx) => {
       const poNo = await this.nextCode('PO', 'po');
-      return tx.invPurchaseOrder.create({
+      const created = await tx.invPurchaseOrder.create({
         data: {
           poNo,
           purchaseRequestId: dto.purchaseRequestId,
           vendorId: dto.vendorId,
-          storeId: dto.storeId,
+          storeId: pr.storeId,
           remarks: dto.remarks,
           orderedByUserId: userId,
-          lines: { create: dto.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, note: l.note })) },
+          lines: {
+            create: dto.lines.map((l) => ({
+              itemId: l.itemId,
+              qty: l.qty,
+              unitPrice: this.resolvePoUnitPrice(l),
+              note: l.note,
+            })),
+          },
         },
-        include: { lines: true },
+        include: {
+          lines: true,
+          vendor: true,
+          store: true,
+          purchaseRequest: { include: { store: true } },
+        },
       });
-    });
+      return created;
+    }).then((row) => this.enrichPoWithPrOffice(row));
   }
-  listPurchaseOrders() {
-    return this.prisma.invPurchaseOrder.findMany({
-      include: { lines: true, vendor: true, store: true, purchaseRequest: true },
+  async listPurchaseOrders() {
+    const rows = await this.prisma.invPurchaseOrder.findMany({
+      include: { lines: true, vendor: true, store: true, purchaseRequest: { include: { store: true } } },
       orderBy: { purchaseOrderId: 'desc' },
     });
+    return this.enrichPoListWithPrOffice(rows);
   }
   async getPurchaseOrder(purchaseOrderId: number) {
     const row = await this.prisma.invPurchaseOrder.findUnique({
       where: { purchaseOrderId },
-      include: { lines: true, vendor: true, store: true, purchaseRequest: true },
+      include: { lines: true, vendor: true, store: true, purchaseRequest: { include: { store: true } } },
     });
     if (!row) throw new NotFoundException(`Purchase order ${purchaseOrderId} not found`);
-    return row;
+    return this.enrichPoWithPrOffice(row);
   }
   async updatePurchaseOrder(purchaseOrderId: number, dto: UpdatePurchaseOrderDto) {
     await this.getPurchaseOrder(purchaseOrderId);
+    if (!dto.purchaseRequestId) {
+      throw new BadRequestException('purchaseRequestId is required');
+    }
+    if (!dto.vendorId) {
+      throw new BadRequestException('vendorId is required');
+    }
+    const pr = await this.getPurchaseRequest(dto.purchaseRequestId);
+    if (pr.status !== InvApprovalStatus.APPROVED) {
+      throw new BadRequestException('Only approved purchase requests can be converted into PO');
+    }
+    if (!pr.storeId) {
+      throw new BadRequestException('Selected purchase request has no store assigned');
+    }
     return this.prisma.$transaction(async (tx) => {
       await tx.invPurchaseOrder.update({
         where: { purchaseOrderId },
         data: {
           purchaseRequestId: dto.purchaseRequestId,
           vendorId: dto.vendorId,
-          storeId: dto.storeId,
+          storeId: pr.storeId,
           remarks: dto.remarks,
         },
       });
       if (dto.lines?.length) {
         await tx.invPurchaseOrderLine.deleteMany({ where: { purchaseOrderId } });
         await tx.invPurchaseOrderLine.createMany({
-          data: dto.lines.map((l) => ({ purchaseOrderId, itemId: l.itemId, qty: l.qty, note: l.note })),
+          data: dto.lines.map((l) => ({
+            purchaseOrderId,
+            itemId: l.itemId,
+            qty: l.qty,
+            unitPrice: this.resolvePoUnitPrice(l),
+            note: l.note,
+          })),
         });
       }
       return tx.invPurchaseOrder.findUnique({
         where: { purchaseOrderId },
-        include: { lines: true, vendor: true, store: true, purchaseRequest: true },
+        include: { lines: true, vendor: true, store: true, purchaseRequest: { include: { store: true } } },
       });
-    });
+    }).then((row) => (row ? this.enrichPoWithPrOffice(row) : row));
   }
   async deletePurchaseOrder(purchaseOrderId: number) {
     await this.getPurchaseOrder(purchaseOrderId);
@@ -426,50 +525,70 @@ export class InventoryService {
 
   // GRN
   async createGrn(dto: CreateGrnDto, userId: number) {
-    if (dto.purchaseOrderId) {
-      const po = await this.getPurchaseOrder(dto.purchaseOrderId);
-      if (po.status !== InvApprovalStatus.APPROVED) {
-        throw new BadRequestException('Only approved PO can be received in GRN');
-      }
+    if (!dto.purchaseOrderId) {
+      throw new BadRequestException('purchaseOrderId is required');
+    }
+    const po = await this.getPurchaseOrder(dto.purchaseOrderId);
+    if (po.status !== InvApprovalStatus.APPROVED) {
+      throw new BadRequestException('Only approved PO can be received in GRN');
+    }
+    if (!po.storeId) {
+      throw new BadRequestException('Selected purchase order has no store assigned');
     }
     return this.prisma.$transaction(async (tx) => {
       const grnNo = await this.nextCode('GRN', 'grn');
-      return tx.invGrn.create({
+      const created = await tx.invGrn.create({
         data: {
           grnNo,
           purchaseOrderId: dto.purchaseOrderId,
-          storeId: dto.storeId,
+          storeId: po.storeId,
           remarks: dto.remarks,
           receivedByUserId: userId,
           lines: { create: dto.lines.map((l) => ({ itemId: l.itemId, qtyReceived: l.qty, note: l.note })) },
         },
-        include: { lines: true },
+        include: {
+          lines: true,
+          store: true,
+          purchaseOrder: { include: { store: true, purchaseRequest: true } },
+        },
       });
-    });
+      return created;
+    }).then((row) => this.normalizeGrnStoreFromPo(row));
   }
-  listGrn() {
-    return this.prisma.invGrn.findMany({
-      include: { lines: true, store: true, purchaseOrder: true },
+  async listGrn() {
+    const rows = await this.prisma.invGrn.findMany({
+      include: { lines: true, store: true, purchaseOrder: { include: { store: true, purchaseRequest: true } } },
       orderBy: { grnId: 'desc' },
     });
+    return rows.map((row) => this.normalizeGrnStoreFromPo(row));
   }
   async getGrn(grnId: number) {
     const row = await this.prisma.invGrn.findUnique({
       where: { grnId },
-      include: { lines: true, store: true, purchaseOrder: true },
+      include: { lines: true, store: true, purchaseOrder: { include: { store: true, purchaseRequest: true } } },
     });
     if (!row) throw new NotFoundException(`GRN ${grnId} not found`);
-    return row;
+    return this.normalizeGrnStoreFromPo(row);
   }
   async updateGrn(grnId: number, dto: UpdateGrnDto) {
     const current = await this.getGrn(grnId);
     if (current.status === InvGrnStatus.CONFIRMED) {
       throw new BadRequestException('Confirmed GRN cannot be edited');
     }
+    if (!dto.purchaseOrderId) {
+      throw new BadRequestException('purchaseOrderId is required');
+    }
+    const po = await this.getPurchaseOrder(dto.purchaseOrderId);
+    if (po.status !== InvApprovalStatus.APPROVED) {
+      throw new BadRequestException('Only approved PO can be received in GRN');
+    }
+    if (!po.storeId) {
+      throw new BadRequestException('Selected purchase order has no store assigned');
+    }
     return this.prisma.$transaction(async (tx) => {
       await tx.invGrn.update({
         where: { grnId },
-        data: { purchaseOrderId: dto.purchaseOrderId, storeId: dto.storeId, remarks: dto.remarks },
+        data: { purchaseOrderId: dto.purchaseOrderId, storeId: po.storeId, remarks: dto.remarks },
       });
       if (dto.lines?.length) {
         await tx.invGrnLine.deleteMany({ where: { grnId } });
@@ -477,8 +596,11 @@ export class InventoryService {
           data: dto.lines.map((l) => ({ grnId, itemId: l.itemId, qtyReceived: l.qty, note: l.note })),
         });
       }
-      return tx.invGrn.findUnique({ where: { grnId }, include: { lines: true, store: true, purchaseOrder: true } });
-    });
+      return tx.invGrn.findUnique({
+        where: { grnId },
+        include: { lines: true, store: true, purchaseOrder: { include: { store: true, purchaseRequest: true } } },
+      });
+    }).then((row) => (row ? this.normalizeGrnStoreFromPo(row) : row));
   }
   async deleteGrn(grnId: number) {
     const current = await this.getGrn(grnId);
@@ -490,7 +612,8 @@ export class InventoryService {
   async confirmGrn(grnId: number, userId: number) {
     const current = await this.getGrn(grnId);
     if (current.status === InvGrnStatus.CONFIRMED) return current;
-    if (!current.storeId) throw new BadRequestException('GRN store is required before confirmation');
+    const effectiveStoreId = current.storeId ?? current.purchaseOrder?.storeId;
+    if (!effectiveStoreId) throw new BadRequestException('GRN store is required before confirmation');
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.invGrn.update({
@@ -503,7 +626,7 @@ export class InventoryService {
         updated.lines.map((l) => ({
           movementType: InvMovementType.GRN_IN,
           itemId: l.itemId,
-          storeId: current.storeId!,
+          storeId: effectiveStoreId,
           qtyIn: l.qtyReceived,
           referenceType: 'GRN',
           referenceId: updated.grnId,

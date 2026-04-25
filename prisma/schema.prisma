@@ -642,6 +642,7 @@ model InvPurchaseRequest {
   purchaseRequestId Int               @id @default(autoincrement()) @map("PurchaseRequestID")
   requestNo         String            @unique @map("RequestNo")
   storeId           Int?              @map("StoreID")
+  officeId          Int?              @map("OfficeID")
   status            InvApprovalStatus @default(DRAFT) @map("Status")
   remarks           String?           @map("Remarks")
   requestedByUserId Int?              @map("RequestedByUserID")

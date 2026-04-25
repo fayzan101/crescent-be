@@ -96,7 +96,7 @@ export function buildOpenApiDocument() {
   if (publicApiUrl) {
     builder.addServer(publicApiUrl.replace(/\/$/, ''), 'Configured API (API_PUBLIC_URL)');
   }
-  builder.addServer('/', 'Current host (e.g. http://localhost:3000)');
+  builder.addServer('/', 'Current host (e.g. http://localhost:5000)');
 
   for (const tag of SWAGGER_TAG_ORDER) {
     const descriptions: Record<string, string> = {

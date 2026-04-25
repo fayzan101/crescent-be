@@ -13,7 +13,7 @@ async function bootstrapServer() {
   if (!cachedApp) {
     const expressApp = express();
     const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
-    const corsOrigins = (process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000')
+    const corsOrigins = (process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000,http://localhost:5000')
       .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean);

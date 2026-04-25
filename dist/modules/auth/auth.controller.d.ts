@@ -14,11 +14,11 @@ export declare class AuthController {
         user: {
             createdAt: Date;
             updatedAt: Date;
+            email: string;
             address: string;
             userId: number;
-            cnic: string;
-            email: string;
             dob: Date;
+            cnic: string;
             contactNo: string;
         };
     }>;
@@ -28,11 +28,11 @@ export declare class AuthController {
         user: {
             createdAt: Date;
             updatedAt: Date;
+            email: string;
             address: string;
             userId: number;
-            cnic: string;
-            email: string;
             dob: Date;
+            cnic: string;
             contactNo: string;
         };
     }>;

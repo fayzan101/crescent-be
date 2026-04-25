@@ -57,7 +57,7 @@ function swaggerUiTagsSorter(a: unknown, b: unknown): number {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const isProduction = process.env.NODE_ENV === 'production';
-  const corsOrigins = (process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000')
+  const corsOrigins = (process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000,http://localhost:5000')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -114,7 +114,7 @@ async function bootstrap() {
     },
   });
 
-  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+  const port = process.env.PORT ? Number(process.env.PORT) : 5000;
   await app.listen(port, '0.0.0.0');
 }
 
