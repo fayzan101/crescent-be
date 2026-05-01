@@ -42,37 +42,8 @@ export const SWAGGER_TAG_ORDER: readonly string[] = [
 
 function buildDescription(): string {
   return [
-    'REST API for onboarding, **RBAC**, **sales + inventory workflows**, and master data. All resource paths are under **`/api/v1/...`** unless noted.',
-    '',
-    '### Authentication',
-    '- **Public:** `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`.',
-    '- **JWT:** all other routes require `Authorization: Bearer <accessToken>`. Use **Authorize** in Swagger UI.',
-    '',
-    '### RBAC (fine-grained permissions)',
-    '- Permission codes are defined in the codebase (`portal-permissions`) and stored in **`Permission`** / **`RolePermission`**.',
-    '- Seed defaults: `npx prisma db seed` creates permissions and a **System Administrator** role with all of them.',
-    '- Assign roles to users with **`User roles`**; grant permissions to roles with **`Role permissions`**.',
-    '- **Sales** endpoints use `@RequirePermissions(...)`: missing permission returns **403**.',
-    '',
-    '### Sales workflow',
-    '- `POST /api/v1/sales` — create sale, initial stage rows, and optional initial sales payload (single call).',
-    '- `GET /api/v1/sales`, `GET /api/v1/sales/:id` — list / detail (needs `sales.view`).',
-    '- `GET /api/v1/sales/:id/audit` — audit trail (`sales.audit.view`).',
-    '- **Stage updates (PATCH):**',
-    '  - `/api/v1/sales/:id/accounts-stage` — accounts review / decision.',
-    '  - `/api/v1/sales/:id/operations-stage` — device, zone, technician, etc.',
-    '  - `/api/v1/sales/:id/technician-stage` — installation fields.',
-    '',
-    '### Inventory workflow',
-    '- Setup: stores, categories, groups, vendors (`Inventory setup`).',
-    '- Item master: create/search/SKU access (`Inventory items`).',
-    '- Procurement: purchase requests -> purchase orders -> GRN confirm (`Inventory purchase requests/orders/grn`).',
-    '- Movements + reporting: issuance/returns/transfers, inventory-card, and reports.',
-    '',
-    '### Master / lookup data',
-    'CRUD for offices, zones, products, banks, cities, vendors, employees, packages, **devices / SIMs / combos / accessories**, etc.',
-    '',
-    'Passwords and token hashes are never returned in responses.',
+    
+    'This is the API documentation for the Crescent inventory and sales management system.',
   ].join('\n');
 }
 
