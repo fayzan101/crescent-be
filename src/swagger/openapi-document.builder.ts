@@ -43,7 +43,7 @@ export const SWAGGER_TAG_ORDER: readonly string[] = [
 function buildDescription(): string {
   return [
     
-    'This is the API documentation for the Crescent inventory and sales management system.',
+    'This is the API documentation for the Crescent Tracking Portal',
   ].join('\n');
 }
 
