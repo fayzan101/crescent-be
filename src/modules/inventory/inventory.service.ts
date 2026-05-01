@@ -527,19 +527,27 @@ export class InventoryService {
 
   // purchase requests
   async createPurchaseRequest(dto: CreatePurchaseRequestDto, userId: number) {
-    const requestNo = await this.nextCode('PR', 'pr');
-    return this.prisma.invPurchaseRequest.create({
-      data: {
-        requestNo,
-        storeId: dto.storeId,
-        officeId: dto.officeId,
-        remarks: dto.remarks,
-        requestedByUserId: userId,
-        lines: {
-          create: dto.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, note: l.note })),
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.invPurchaseRequest.create({
+        data: {
+          // Temporary unique value; replaced with deterministic PR-<id> right after insert.
+          requestNo: `PR-TMP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          storeId: dto.storeId,
+          officeId: dto.officeId,
+          remarks: dto.remarks,
+          requestedByUserId: userId,
+          lines: {
+            create: dto.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, note: l.note })),
+          },
         },
-      },
-      include: { lines: true },
+      });
+
+      const requestNo = `PR-${String(created.purchaseRequestId).padStart(6, '0')}`;
+      return tx.invPurchaseRequest.update({
+        where: { purchaseRequestId: created.purchaseRequestId },
+        data: { requestNo },
+        include: { lines: true },
+      });
     });
   }
   listPurchaseRequests() {
